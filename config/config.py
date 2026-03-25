@@ -8,11 +8,12 @@ class Camera:    # parameters related to camera
     # CSI cameras. These settings are used across capture, calibration, and
     # streaming components to ensure consistent image dimensions and timing.
     #
-    # Note: the 640x360 resolution doesn't seem to calibrate well
+    # Note: to use full FOV use 1640x1232  (or full IMX219 res 3280x2464)
+    #       run ../tests/print_sensor_modes.py and look for "crop_limits: (0, 0, 3280, 2464)"
     # =====================================================
 
-    WIDTH = 1280
-    HEIGHT = 960
+    WIDTH = 1640
+    HEIGHT = 1232
     FPS = 30
     LEFT = 0
     RIGHT = 1
