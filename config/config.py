@@ -12,7 +12,7 @@ class Camera:    # parameters related to camera
     # =====================================================
 
     WIDTH = 1280
-    HEIGHT = 720
+    HEIGHT = 960
     FPS = 30
     LEFT = 0
     RIGHT = 1
