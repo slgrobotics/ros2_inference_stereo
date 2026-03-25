@@ -3,29 +3,24 @@ inference_stereo_node:
   ros__parameters:
     verbose: True        # If true - print debug info.
     ticker_interval_sec: 0.1   # 10 Hz UDP socket poll timer
-    bind_ip: '0.0.0.0'
-    port: 5005
-    cloud_topic: '/stereo/sparse_cloud'
+    #image_topic: '/camera/image_raw/compressed'   # for bounding boxes overlay
+    image_topic: 'camera/image_raw'  # preview in RViz2
+    cloud_topic: 'stereo/sparse_cloud'
+    detection_topic: 'image_inference_detections'
     frame_id: 'stereo_camera'
-    socket_timeout_sec:  0.0   # 0 for non-blocking
     log_every_n_packets: 10    # 0 for no log
     color_patch_fraction: 0.5  # center patch size relative to cell
     use_mean_color: True
-    image_topic: 'camera/image_raw'
-    #image_topic: '/camera/image_raw/compressed'   # for bounding boxes overlay
-    tcp_host: 'jetson.local'
-    tcp_port: 5006
     request_image_every_sec: 0.5
     jpeg_max_width: 320
     jpeg_max_height: 180
     jpeg_quality: 60
-    tcp_timeout_sec: 5.0
-
-    startup_delay_sec: 5.0
+    # inference related:
+    startup_delay_sec: 5.0 # model warm-up
     min_confidence: 0.6    # do not publish if below this confidence threshold
     objects_allowed: ['']  # Empty list means allow all detected objects.
     #objects_allowed: ['person', 'cup', 'bottle', 'cell phone', 'banana', 'book', 'scissors', 'dog', 'cat']  # Not case sensitive.
-    stats_period_sec: 5.0
+    stats_period_sec: 5.0  # how often to collect and print statistics
 
 
 # Perception adapter (BT topics relay) configuration
@@ -33,7 +28,7 @@ perception_adapter:
   ros__parameters:
     verbose: True        # If true - print debug info about recognized and passed detections.
     ticker_interval_sec: 0.1
-    detection_topic: '/image_inference_detections'
+    detection_topic: 'image_inference_detections'
     #face_detected_sound: 'my_face.wav'
     face_detected_text: 'I see you!'
     min_confidence: 0.6
