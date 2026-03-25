@@ -1,0 +1,295 @@
+#!/usr/bin/env python3
+
+# =====================================================
+# Stereo image pair capture tool for calibration on Jetson Nano.
+#
+# This script captures synchronized image pairs from two CSI cameras at fixed
+# time intervals and saves them to disk for stereo calibration.
+#
+# During operation, a live preview is displayed. Before each capture, a short
+# visual cue (red center rectangle) is shown to prompt the user to remain still,
+# improving capture consistency and calibration accuracy.
+# After each capture, image pair is validated for successful chessboard corner
+# detection, and only valid pairs are included in the dataset.
+#
+# Key features:
+# - Dual-camera synchronized capture using GStreamer (nvargus)
+# - Automatic timed acquisition of N stereo pairs
+# - Pre-capture stabilization cue (visual flash overlay)
+# - Frame flushing to reduce motion artifacts
+# - Visual indication of chessboard corners found or not
+# - Organized output into left/right image folders
+#
+# Intended use:
+# - Collecting high-quality stereo datasets for OpenCV calibration
+# - Ensuring varied board poses while minimizing motion blur
+# - Simple, repeatable capture workflow on embedded platforms
+#
+# Move the checkerboard through many positions and angles, filling the frame, tilting and rotating it,
+#  and covering different depths—holding it steady during each capture.
+# =====================================================
+
+import cv2
+import os
+import time
+
+from config.config import Stereo, Calib
+from helper_camera import CameraDriver
+
+#
+# Stereo vision on Nano:
+# - https://chatgpt.com/s/t_69b88fead95c8191be1cacb3edff4ea2  - general advice
+# - https://chatgpt.com/s/t_69b890a7d5e08191b447848349d0178b  - minimal three-script starter pack
+#
+# Calibration board generator:
+#  - https://markhedleyjones.com/projects/calibration-checkerboard-collection
+#  - https://markhedleyjones.com/media/projects/calibration-checkerboard-collection/Checkerboard-A4-30mm-8x6.pdf
+#
+
+def is_dir_empty_recursive(base_dir):
+    for _, _, files in os.walk(base_dir):
+        if files:
+            return False
+    return True
+
+def maybe_clear_dataset(base_dir):
+    try:
+        answer = input(f"Delete ALL existing pairs in '{base_dir}' before capture? [Y/n]: ").strip().lower()
+    except EOFError:
+        answer = ""  # default = YES
+
+    if answer in ("", "y", "yes"):
+        print("Deleting existing pairs...")
+
+        def delete_in_dir(d):
+            count = 0
+            for f in os.listdir(d):
+                path = os.path.join(d, f)
+                if os.path.isdir(path):
+                    count += delete_in_dir(path)
+                elif os.path.isfile(path):
+                    os.remove(path)
+                    count += 1
+            return count
+
+        total_deleted = delete_in_dir(base_dir)
+
+        print(f"Deleted {total_deleted} files from '{base_dir}'\n")
+    else:
+        print("Keeping existing stereo pairs.\n")
+
+def flush_and_read(cap, n=4):
+    for _ in range(n):
+        cap.grab()
+    return cap.read()
+
+
+def draw_flash_border(img, color=(0, 0, 255), thickness=4):
+    # =====================================================
+    # Draw a centered rectangle sized to 1/5 of the image width and height.
+    # =====================================================
+    out = img.copy()
+    h, w = out.shape[:2]
+
+    rw = w - thickness
+    rh = h - thickness
+
+    x0 = (w - rw) // 2
+    y0 = (h - rh) // 2
+    x1 = x0 + rw
+    y1 = y0 + rh
+
+    cv2.rectangle(out, (x0, y0), (x1, y1), color, thickness)
+    return out
+
+def detect_and_draw(img, chessboard_size):
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    found, corners = cv2.findChessboardCorners(gray, chessboard_size, None)
+
+    vis = img.copy()
+    if found:
+        corners = cv2.cornerSubPix(
+            gray,
+            corners,
+            (11, 11),
+            (-1, -1),
+            (
+                cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER,
+                30,
+                0.001,
+            ),
+        )
+        cv2.drawChessboardCorners(vis, chessboard_size, corners, found)
+
+    return found, vis
+
+
+def main():
+    out_dir = Calib.PAIR_DIR
+
+    print("\nStereo pairs directory:", os.path.dirname(out_dir))
+
+    left_dir = os.path.join(out_dir, "left")
+    right_dir = os.path.join(out_dir, "right")
+    os.makedirs(left_dir, exist_ok=True)
+    os.makedirs(right_dir, exist_ok=True)
+
+    if not is_dir_empty_recursive(out_dir):  # only reacts when files exist, directories ok
+        maybe_clear_dataset(out_dir)
+
+    capL, capR = CameraDriver.open_stereo_cameras()
+
+    print(f"Starting auto capture: {Calib.NUM_PAIRS} pairs, interval {Calib.INTERVAL_SEC}s")
+    print("Hold board still before each capture...\n")
+
+    # Warm up cameras
+    for _ in range(10):
+        capL.read()
+        capR.read()
+
+    pair_idx = 0
+
+    while pair_idx < Calib.NUM_PAIRS:
+        t_start = time.time()
+
+        # Preview loop during waiting interval
+        while True:
+            okL, left = capL.read()
+            okR, right = capR.read()
+
+            if okL and okR:
+                # flip horizontally for preview, easier to see yourself in the mirror
+                left_mirror = cv2.flip(left, 1)
+                right_mirror = cv2.flip(right, 1)
+
+                preview = cv2.hconcat([left_mirror, right_mirror])
+                cv2.putText(
+                    preview,
+                    f"Next capture in {max(0, Calib.INTERVAL_SEC - (time.time() - t_start)):.1f}s | idx={pair_idx}",
+                    (20, 40),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.8,
+                    (0, 255, 255),
+                    2,
+                    cv2.LINE_AA,
+                )
+                cv2.imshow("Stereo Preview", preview)
+
+            if cv2.waitKey(1) & 0xFF in (27, ord("q")):
+                print("Aborted by user")
+                capL.release()
+                capR.release()
+                cv2.destroyAllWindows()
+                return
+
+            if time.time() - t_start >= Calib.INTERVAL_SEC:
+                break
+
+        print(f"[{pair_idx:03d}] Flashing warning rectangle... stand still")
+
+        # Flash warning rectangle before sampling
+        flash_start = time.time()
+        while time.time() - flash_start < Calib.FLASH_SEC:
+            okL, left = capL.read()
+            okR, right = capR.read()
+
+            if okL and okR:
+                # flip horizontally for preview, easier to see yourself in the mirror
+                left_mirror = cv2.flip(left, 1)
+                right_mirror = cv2.flip(right, 1)
+
+                left_flash = draw_flash_border(left_mirror)
+                right_flash = draw_flash_border(right_mirror)
+                preview = cv2.hconcat([left_flash, right_flash])
+
+                cv2.putText(
+                    preview,
+                    f"Capturing {pair_idx+1} of {Calib.NUM_PAIRS}... HOLD STILL",
+                    (20, 100),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    2.0,
+                    (0, 255, 255),
+                    3,
+                    cv2.LINE_AA,
+                )
+                cv2.imshow("Stereo Preview", preview)
+
+            if cv2.waitKey(1) & 0xFF in (27, ord("q")):
+                print("Aborted by user")
+                capL.release()
+                capR.release()
+                cv2.destroyAllWindows()
+                return
+
+        print(f"[{pair_idx:03d}] Capturing now")
+
+        # Flush + fresh capture
+        okL, left = flush_and_read(capL, Calib.FLUSH_FRAMES)
+        okR, right = flush_and_read(capR, Calib.FLUSH_FRAMES)
+
+        if not okL or not okR:
+            print("Capture failed, skipping")
+            continue
+
+        foundL, visL = detect_and_draw(left, Stereo.CHESSBOARD_SIZE)
+        foundR, visR = detect_and_draw(right, Stereo.CHESSBOARD_SIZE)
+
+        preview = cv2.hconcat([cv2.flip(visL, 1), cv2.flip(visR, 1)])
+
+        if not (foundL and foundR):
+            print(f"Corners not found (L={foundL}, R={foundR}), skipping")
+            print(f"Corners not found (L={foundL}, R={foundR}), skipping")
+
+            # Create red flash overlay
+            red_overlay = preview.copy()
+            red_overlay[:] = (0, 0, 255)  # BGR: full red
+
+            # Blend original + red (keeps faint structure visible)
+            flash = cv2.addWeighted(preview, 0.3, red_overlay, 0.7, 0)
+
+            cv2.putText(
+                flash,
+                "NO CORNERS",
+                (40, 60),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                2.0,
+                (255, 255, 255),
+                3,
+                cv2.LINE_AA,
+            )
+
+            cv2.imshow("Stereo Preview", flash)
+
+            # Non-blocking short flash
+            for _ in range(120):
+                if cv2.waitKey(1) & 0xFF in (27, ord("q")):
+                    break
+
+            continue
+
+        cv2.imshow("Stereo Preview", preview)
+
+        # Non-blocking pause (~1s total, but UI stays alive)
+        for _ in range(120):
+            if cv2.waitKey(1) & 0xFF in (27, ord("q")):
+                break
+
+        left_path = os.path.join(left_dir, f"left_{pair_idx:04d}.png")
+        right_path = os.path.join(right_dir, f"right_{pair_idx:04d}.png")
+
+        cv2.imwrite(left_path, left)
+        cv2.imwrite(right_path, right)
+
+        print(f"Saved pair {pair_idx:04d}")
+
+        pair_idx += 1
+
+    print("\nDone capturing.")
+
+    capL.release()
+    capR.release()
+    cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    main()
