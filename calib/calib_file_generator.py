@@ -36,8 +36,14 @@ import cv2
 import glob
 import numpy as np
 import os
+import sys
 
-from config.config import Camera, Stereo, Calib
+# Add ../config to Python path so we can import config.py
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_DIR = os.path.abspath(os.path.join(THIS_DIR, "..", "config"))
+sys.path.append(CONFIG_DIR)
+
+from config import Camera, Stereo, Calib
 
 #
 # Stereo vision on Nano:

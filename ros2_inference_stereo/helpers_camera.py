@@ -1,13 +1,21 @@
 #!/usr/bin/env python3
 
+import os
+import sys
 import time
+
 from typing import Tuple
 
 import cv2
 import numpy as np
 from picamera2 import Picamera2
 
-from config.config import Camera
+# Add ../config to Python path so we can import config.py
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_DIR = os.path.abspath(os.path.join(THIS_DIR, "..", "config"))
+sys.path.append(CONFIG_DIR)
+
+from config import Camera
 
 
 class Picamera2Capture:

@@ -31,20 +31,17 @@
 
 import cv2
 import os
+import sys
 import time
 
-from config.config import Stereo, Calib
-from helper_camera import CameraDriver
+# Add ../config to Python path so we can import config.py
+THIS_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_DIR = os.path.abspath(os.path.join(THIS_DIR, "..", "config"))
+sys.path.append(CONFIG_DIR)
 
-#
-# Stereo vision on Nano:
-# - https://chatgpt.com/s/t_69b88fead95c8191be1cacb3edff4ea2  - general advice
-# - https://chatgpt.com/s/t_69b890a7d5e08191b447848349d0178b  - minimal three-script starter pack
-#
-# Calibration board generator:
-#  - https://markhedleyjones.com/projects/calibration-checkerboard-collection
-#  - https://markhedleyjones.com/media/projects/calibration-checkerboard-collection/Checkerboard-A4-30mm-8x6.pdf
-#
+from config import Stereo, Calib
+from helper_picamera import CameraDriver
+
 
 def is_dir_empty_recursive(base_dir):
     for _, _, files in os.walk(base_dir):
