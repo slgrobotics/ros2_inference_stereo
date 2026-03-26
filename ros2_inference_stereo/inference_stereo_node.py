@@ -67,10 +67,12 @@ class InferenceStereoNode(Node):
         self.declare_parameter("calibration_file", "config/calib_820x616.npz")
         self.declare_parameter("cloud_topic", "stereo/sparse_cloud")
         self.declare_parameter("frame_id", "stereo_camera")
+        self.declare_parameter("grid_size", 16)  # Grid size NxN for sparse sampling
         self.declare_parameter("close_cutout_factor", 1.0)
         self.declare_parameter("far_smoothing_factor", 1.0)
         self.declare_parameter("color_patch_fraction", 0.5)   # center patch size relative to cell
         self.declare_parameter("use_mean_color", True)
+        self.declare_parameter("min_confidence", 0.02)
         self.declare_parameter("ticker_interval_sec", 0.1)  # 10 Hz UDP socket poll timer
         self.declare_parameter("log_every_n_packets", 10)   # 0 for no log
 
@@ -84,10 +86,12 @@ class InferenceStereoNode(Node):
         self.calibration_file = str(self.get_parameter("calibration_file").value)
         cloud_topic = str(self.get_parameter("cloud_topic").value)
         self.frame_id = str(self.get_parameter("frame_id").value)
+        self.grid_size = int(self.get_parameter("grid_size").value)
         self.close_cutout_factor = float(self.get_parameter("close_cutout_factor").value)
         self.far_smoothing_factor = float(self.get_parameter("far_smoothing_factor").value)
         self.color_patch_fraction = float(self.get_parameter("color_patch_fraction").value)
         self.use_mean_color = bool(self.get_parameter("use_mean_color").value)
+        self.min_confidence = float(self.get_parameter("min_confidence").value)
         ticker_interval_sec = float(self.get_parameter("ticker_interval_sec").value)
         self.log_every_n_packets = int(self.get_parameter("log_every_n_packets").value)
 
@@ -119,8 +123,8 @@ class InferenceStereoNode(Node):
         self.width = int(calib["image_width"])
         self.height = int(calib["image_height"])
 
-        self.focal_px = float(PL[0, 0])
-        self.baseline_m = float(np.linalg.norm(T))
+        self.focal_px = float(self.PL[0, 0])
+        self.baseline_m = float(np.linalg.norm(self.T))
 
         # min_disp = minimum disparity the matcher will search
         # the algorithm searches disparities in: [min_disp, min_disp + num_disp]
@@ -132,21 +136,21 @@ class InferenceStereoNode(Node):
         #num_disp = 16 * 6  # closest objects cutoff at 0.9 meters
         #num_disp = 16 * 8  # closest objects cutoff at 0.5 meters
 
-        min_disp, num_disp, block_size = self.pointcloud_helper.derive_sgbm_params(
+        self.min_disp, self.num_disp, self.block_size = derive_sgbm_params(
             self.close_cutout_factor,
             self.far_smoothing_factor
         )
 
-        self.get_logger().info(f"min_disp   : {min_disp}")
-        self.get_logger().info(f"num_disp   : {num_disp}")
-        self.get_logger().info(f"block_size : {block_size}")
+        self.get_logger().info(f"min_disp   : {self.min_disp}")
+        self.get_logger().info(f"num_disp   : {self.num_disp}")
+        self.get_logger().info(f"block_size : {self.block_size}")
 
         self.stereo = cv2.StereoSGBM_create(
-            minDisparity=min_disp,
-            numDisparities=num_disp,
-            blockSize=block_size,
-            P1=8 * 1 * block_size * block_size,
-            P2=32 * 1 * block_size * block_size,
+            minDisparity=self.min_disp,
+            numDisparities=self.num_disp,
+            blockSize=self.block_size,
+            P1=8 * 1 * self.block_size * self.block_size,
+            P2=32 * 1 * self.block_size * self.block_size,
             disp12MaxDiff=1,
             uniquenessRatio=5,
             speckleWindowSize=50,
@@ -154,6 +158,8 @@ class InferenceStereoNode(Node):
             preFilterCap=31,
             mode=cv2.STEREO_SGBM_MODE_SGBM_3WAY,
         )
+
+        self.grid_rows = self.grid_cols = self.grid_size
 
         # Open cameras:
         self.capL, self.capR = CameraDriver.open_stereo_cameras()
@@ -170,7 +176,6 @@ class InferenceStereoNode(Node):
         )
         self.pub_cloud = self.create_publisher(PointCloud2, cloud_topic, qos)
 
-        self.last_seq = -1
         self.packet_counter = 0
 
         self.timer = self.create_timer(ticker_interval_sec, self.main_loop)
@@ -215,20 +220,21 @@ class InferenceStereoNode(Node):
 
             if self.verbose:
                 self.get_logger().info(
-                    f"Published raw image from TCP server: seq={seq}, shape={frame.shape[1]}x{frame.shape[0]}"
+                    f"Published raw image from TCP server: seq={self.packet_counter}, shape={frame.shape[1]}x{frame.shape[0]}"
                 )
 
 
     def main_loop(self) -> None:
 
         latest_msg = None
-        seq = 0
         now = time.time()
         stamp_ns = int(now * 1e9)
+        last_time = now
+        fps_filtered = 0.0
 
         while True:
 
-            rows, cols, points = None
+            points = None
 
             try:
                 okL, left = self.capL.read()
@@ -265,7 +271,7 @@ class InferenceStereoNode(Node):
                 invalid_right_cols=invalid_right_cols,
             )
 
-            points_3d = cv2.reprojectImageTo3D(disparity, Q, handleMissingValues=False)
+            points_3d = cv2.reprojectImageTo3D(disparity, self.Q, handleMissingValues=False)
 
             points = extract_sparse_points(
                 disparity,
@@ -286,19 +292,12 @@ class InferenceStereoNode(Node):
             fps_now = 1.0 / dt if dt > 0 else 0.0
             fps_filtered = 0.9 * fps_filtered + 0.1 * fps_now if fps_filtered > 0 else fps_now
 
-            self.get_logger().info(
-                f"seq={seq} points={len(points)} num_points={len(points.count)} fps={fps_filtered:.2f}",
-                end="\r",
-                flush=True,
-            )
+            latest_msg = self.pointcloud_helper.build_pointcloud2(self.packet_counter, stamp_ns, self.grid_rows, self.grid_cols, points)
 
-            latest_msg = self.pointcloud_helper.build_pointcloud2(seq, stamp_ns, self.grid_rows, self.grid_cols, points)
-
-            seq += 1
             self.packet_counter += 1
             if self.log_every_n_packets > 0 and (self.packet_counter % self.log_every_n_packets == 0):
                 self.get_logger().info(
-                    f"points={len(points)} grid={self.grid_rows}x{self.grid_cols}"
+                    f"seq={self.packet_counter}  grid={self.grid_rows}x{self.grid_cols}  points={len(points)}  num_points={points.count}  fps={fps_filtered:.2f}"
                 )
 
             if latest_msg is not None:

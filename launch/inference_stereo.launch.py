@@ -30,10 +30,12 @@ def generate_launch_description():
             'cloud_topic': "stereo/sparse_cloud",
             'detection_topic': 'image_inference_detections',
             'frame_id': "stereo_camera",
+            'grid_size': 16,  # Grid size NxN for sparse sampling
             'close_cutout_factor': 1.0,
             'far_smoothing_factor': 1.0,
             'color_patch_fraction': 0.5,  # center patch size relative to cell
             'use_mean_color': True,
+            'min_confidence': 0.02,
             'ticker_interval_sec': 0.1,   # 10 Hz UDP socket poll timer
             'log_every_n_packets': 10,    # 0 for no log
             'request_image_every_sec': 0.5,
