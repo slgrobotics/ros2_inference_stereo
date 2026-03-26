@@ -215,7 +215,9 @@ class InferenceStereoNode(Node):
 
             msg = self.br.cv2_to_imgmsg(frame, encoding="bgr8")
 
-            msg.header.stamp = self.get_clock().now().to_msg()
+            msg.header.stamp.sec = int(img_stamp_ns // 1_000_000_000)
+            msg.header.stamp.nanosec = int(img_stamp_ns % 1_000_000_000)
+            #msg.header.stamp = self.get_clock().now().to_msg()
             msg.header.frame_id = self.frame_id
 
             self.image_pub.publish(msg)
