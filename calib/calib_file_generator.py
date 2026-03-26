@@ -37,6 +37,7 @@ import glob
 import numpy as np
 import os
 import sys
+import time
 
 # Add ../config to Python path so we can import config.py
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -135,6 +136,7 @@ def main():
             cv2.waitKey(150)
         else:
             print(f"FYI: Rejected pair:\n  {left_path}\n  {right_path}")
+        #time.sleep(0.1)
 
     cv2.destroyAllWindows()
 
