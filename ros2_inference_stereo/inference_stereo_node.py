@@ -81,7 +81,7 @@ class InferenceStereoNode(Node):
         self.declare_parameter("jpeg_quality", 60)
 
         self.verbose = bool(self.get_parameter("verbose").value)
-        self.calibration_file = bool(self.get_parameter("calibration_file").value)
+        self.calibration_file = str(self.get_parameter("calibration_file").value)
         cloud_topic = str(self.get_parameter("cloud_topic").value)
         self.frame_id = str(self.get_parameter("frame_id").value)
         self.close_cutout_factor = float(self.get_parameter("close_cutout_factor").value)
@@ -101,6 +101,9 @@ class InferenceStereoNode(Node):
 
         # Load calibration NPZ:
         try:
+            self.get_logger().info(
+                f"Loading stereo calibration file: '{self.calibration_file}'"
+            )
             calib = np.load(self.calibration_file)
         except FileNotFoundError:
             raise RuntimeError(f"Calibration file '{self.calibration_file}' not found")
