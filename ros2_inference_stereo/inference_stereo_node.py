@@ -40,9 +40,12 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
 from sensor_msgs.msg import Image
+from vision_msgs.msg import Detection2DArray
 from sensor_msgs.msg import PointCloud2
 
 from config.config import Stereo, Streamer
+from ros2_inference_stereo.helpers_inference import ObjectDetector
+from ros2_inference_stereo.helpers_detection_ros import DetectionRosHelper
 from ros2_inference_stereo.helper_picamera import CameraDriver
 from ros2_inference_stereo.helpers_pointcloud import PointCloudHelper
 from ros2_inference_stereo.helpers_disparity import (
@@ -57,6 +60,7 @@ class InferenceStereoNode(Node):
 
         self.declare_parameter("verbose", False)
         self.declare_parameter("calibration_file", "config/calib_820x616.npz")
+        self.declare_parameter("model_path", "models/yolo11n.pt")
         self.declare_parameter("cloud_topic", "stereo/sparse_cloud")
         self.declare_parameter("frame_id", "stereo_camera")
         self.declare_parameter("grid_size", 16)  # Grid size NxN for sparse sampling
@@ -76,6 +80,7 @@ class InferenceStereoNode(Node):
 
         self.verbose = bool(self.get_parameter("verbose").value)
         self.calibration_file = str(self.get_parameter("calibration_file").value)
+        self.model_path = str(self.get_parameter("model_path").value)
         cloud_topic = str(self.get_parameter("cloud_topic").value)
         self.frame_id = str(self.get_parameter("frame_id").value)
         self.grid_size = int(self.get_parameter("grid_size").value)
@@ -92,6 +97,26 @@ class InferenceStereoNode(Node):
         self.jpeg_max_width = int(self.get_parameter("jpeg_max_width").value)
         self.jpeg_max_height = int(self.get_parameter("jpeg_max_height").value)
         self.jpeg_quality = int(self.get_parameter("jpeg_quality").value)
+
+        self.detector = ObjectDetector(
+            model_path=self.model_path,
+            imgsz=820,
+            conf_threshold=0.25,
+            iou_threshold=0.45,
+            device="cpu",
+        )
+
+        self.detection_ros_helper = DetectionRosHelper(
+            frame_id=self.frame_id,
+            min_confidence=0.25,
+            allowed_labels=["person", "dog", "cat"],
+        )
+
+        self.detection_pub = self.create_publisher(
+            Detection2DArray,
+            "detections",
+            10,
+        )
 
         self.pointcloud_helper = PointCloudHelper(self.use_mean_color, self.color_patch_fraction, self.frame_id)
 
@@ -226,6 +251,18 @@ class InferenceStereoNode(Node):
                 self.get_logger().info(
                     f"Published raw image: seq={self.packet_counter}, shape={frame.shape[1]}x{frame.shape[0]}"
                 )
+
+            detections = self.detector.infer(frame)
+
+            #dbg = self.detector.draw_detections(frame, detections)  # image with detections overlay
+
+            det_msg = self.detection_ros_helper.build_detection_array_msg(
+                detections=detections,
+                stamp=self.get_clock().now().to_msg(),
+                source_frame_id=self.frame_id,
+            )
+
+            self.detection_pub.publish(det_msg)
 
 
     def main_loop(self) -> None:
