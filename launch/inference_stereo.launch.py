@@ -14,6 +14,9 @@ def generate_launch_description():
     # Get the package directory
     package_dir = get_package_share_directory('ros2_inference_stereo')
 
+    # Path to stereo configuration NPZ file
+    calib_file = os.path.join(package_dir, 'config', 'calib_820x616.npz')
+
     # Path to params YAML file (optional)
     params_file = os.path.join(package_dir, 'config', 'params.yaml')
 
@@ -25,7 +28,7 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             'verbose': True,        # If true - print debug info.
-            'calibration_file': "/home/ros/rpi5_ws/src/ros2_inference_stereo/calib/calib_820x616.npz",
+            'calibration_file': calib_file,
             'image_topic': "camera/image_raw",
             'cloud_topic': "stereo/sparse_cloud",
             'detection_topic': 'image_inference_detections',
