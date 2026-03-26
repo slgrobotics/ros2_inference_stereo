@@ -34,7 +34,7 @@ THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_DIR = os.path.abspath(os.path.join(THIS_DIR, "..", "config"))
 sys.path.append(CONFIG_DIR)
 
-from config import Calib
+from config import Camera, Calib
 from helper_picamera import CameraDriver
 
 
@@ -164,7 +164,8 @@ def main():
     print(f"Using focal length: {focal_px:.2f} px")
     print(f"Using baseline    : {baseline_m * 100.0:.2f} cm")
 
-    capL, capR = CameraDriver.open_stereo_cameras(width, height)
+    # We calibrated on scaled down images, the width and height are scaled down here. Compensate for that:
+    capL, capR = CameraDriver.open_stereo_cameras(width * Camera.SCALE_BY, height * Camera.SCALE_BY)
 
     min_disp = 0
     num_disp = 16 * 6  # "16 * 3" will increase FPS from 1.0 to 1.8, but quality will suffer 

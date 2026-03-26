@@ -40,11 +40,11 @@ class Picamera2Capture:
             if frame is None:
                 return False, None
 
-            # Picamera2 often returns RGB; convert to BGR for OpenCV compatibility.
-            if frame.ndim == 3 and frame.shape[2] == 3:
-                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            elif frame.ndim == 3 and frame.shape[2] == 4:
-                frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
+            # # Picamera2 often returns RGB; convert to BGR for OpenCV compatibility.
+            # if frame.ndim == 3 and frame.shape[2] == 3:
+            #     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            # elif frame.ndim == 3 and frame.shape[2] == 4:
+            #     frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
 
             # Downscale here
             if self.scale_by > 1:
