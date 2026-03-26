@@ -2,7 +2,7 @@
 import threading
 
 import struct
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 import numpy as np
 
 from std_msgs.msg import Header
@@ -17,7 +17,7 @@ class PointCloudHelper:
         self.color_patch_fraction = color_patch_fraction
         self.frame_id = frame_id
 
-        self.latest_image = None
+        self.latest_image: Optional[np.ndarray] = None
         self.latest_image_stamp_ns = 0
         self.latest_image_lock = threading.Lock()
 
@@ -38,7 +38,7 @@ class PointCloudHelper:
             self.latest_image = image.copy() if image is not None else None
             self.latest_image_stamp_ns = int(stamp_ns)
 
-    def get_latest_image_copy_with_stamp(self):
+    def get_latest_image_copy_with_stamp(self) -> Tuple[Optional[np.ndarray], int]:
         with self.latest_image_lock:
             if self.latest_image is None:
                 return None, 0
@@ -79,16 +79,16 @@ class PointCloudHelper:
 
         if self.use_mean_color:
             mean_bgr = patch.reshape(-1, 3).mean(axis=0)
-            b, g, r = [int(round(v)) for v in mean_bgr]
+            b, g, r = [max(0, min(255, int(round(v)))) for v in mean_bgr]
         else:
-            b, g, r = [int(v) for v in patch[patch.shape[0] // 2, patch.shape[1] // 2]]
+            b, g, r = [max(0, min(255, int(v))) for v in patch[patch.shape[0] // 2, patch.shape[1] // 2]]
 
         return self.pack_rgb_float(r, g, b)
 
 
     def build_pointcloud2(
         self,
-        seq: int,
+        image: Optional[np.ndarray],
         stamp_ns: int,
         rows: int,
         cols: int,
@@ -99,14 +99,12 @@ class PointCloudHelper:
         header.stamp.sec = int(stamp_ns // 1_000_000_000)
         header.stamp.nanosec = int(stamp_ns % 1_000_000_000)
 
-        img, img_stamp_ns = self.get_latest_image_copy_with_stamp()
-
         colored_points = []
         for x, y, z, confidence, row, col in points:
-            if img is not None:
-                rgb = self.sample_cell_rgb(img, row, col, rows, cols)
+            if image is not None:
+                rgb = self.sample_cell_rgb(image, row, col, rows, cols)
             else:
-                rgb = self.pack_rgb_float(255, 255, 255)
+                rgb = self.pack_rgb_float(255, 0, 255)
 
             colored_points.append((x, y, z, rgb, confidence, row, col))
 

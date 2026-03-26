@@ -1,45 +1,35 @@
 #!/usr/bin/env python3
 
-# ========================================================
-# ROS 2 stereo client node for sparse point cloud and preview image visualization.
+# =========================================================================
+# This ROS2 node captures images from dual cameras and applies AI models for object recognition.
+# It also processes stereo disparity information and generates a colorized PointCloud2.
+# It publishes the rectified left image for visualization.
 #
-# This node captures images from dual cameras and applies AI models for object recognition.
+# Each point is augmented with:
+# - RGB color sampled from the rectified left image (per grid cell)
+# - Confidence value from disparity filtering
+# - Grid cell indices (row, col) for debugging/analysis
 #
-# This node also constructs a PointCloud2 message, and publishes it for downstream use
-# (e.g., Nav2 obstacle processing and RViz2 visualization).
-#
-# It also publishes the latest rectified left preview image as a raw ROSimage,
-# and derives approximate per-point RGB values from the corresponding grid cells.
-#
-# The resulting PointCloud2 contains:
-# - geometry (x, y, z)
-# - packed RGB color for visualization
-# - confidence
-# - grid row/column metadata
+# The node publishes:
+# - Detection2DArray message for perception_adapter.py or other ROS2 consumers
+# - sensor_msgs/PointCloud2: colorized 3D point cloud for RViz2 and Nav2
+# - sensor_msgs/Image: rectified left image for visualization/debugging
 #
 # Key features:
 # - Captures images from dual cameras
 # - Applies an inference model (e.g. yolo11n) to the image
-# - publishes Detection2DArray message for perception_adapter.py or other ROS2 consumers
-# - Performs disparity calculations to derive stereo depth
-# - Publishes raw image for RViz2 and RQt
-# - Calculates approximate point-cloud colorization from image grid cells
-# - Publishes PointCloud2 topic usable for both debugging and navigation
+# - Grid-based downsampling for controlled point density
+# - Optional mean-color or center-pixel RGB sampling per cell
 #
 # Intended use:
 # - Object detection and classification for use by Behavior trees
-# - Visualizing stereo-derived sparse point clouds in RViz2
-# - Supplying point clouds to Nav2 / local costmap obstacle layers
-# - Debugging perception alignment between cloud and camera image
-#
-# ========================================================
+# - Real-time obstacle perception (PointCloud2) for Nav2 local costmaps
+# - Visual debugging of stereo depth via RViz2 colorized point clouds
+# - Lightweight stereo processing on embedded platforms (RPi5)
+# =========================================================================
 
-import threading
 import time
 
-import struct
-from typing import List, Tuple
-import json
 import numpy as np
 
 import cv2
@@ -49,15 +39,17 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
-from std_msgs.msg import Header
 from sensor_msgs.msg import Image
 from sensor_msgs.msg import PointCloud2
 
 from config.config import Stereo, Streamer
-from ros2_inference_stereo.helper_picamera import CameraDriver, Picamera2Capture
+from ros2_inference_stereo.helper_picamera import CameraDriver
 from ros2_inference_stereo.helpers_pointcloud import PointCloudHelper
-from ros2_inference_stereo.helpers_disparity import make_valid_disparity_mask, derive_sgbm_params, estimate_depth_cm_from_disparity, overlay_cell_distances, cam_to_ros, extract_sparse_points
-
+from ros2_inference_stereo.helpers_disparity import (
+    make_valid_disparity_mask,
+    derive_sgbm_params,
+    extract_sparse_points,
+)
 
 class InferenceStereoNode(Node):
     def __init__(self) -> None:
@@ -165,7 +157,6 @@ class InferenceStereoNode(Node):
         self.capL, self.capR = CameraDriver.open_stereo_cameras()
 
         self.br = CvBridge()
-        self.tcp_sock = None
 
         self.image_pub = self.create_publisher(Image, image_topic, 10)
 
@@ -201,6 +192,16 @@ class InferenceStereoNode(Node):
         except Exception:
             pass
 
+        try:
+            self.capL.release()
+        except Exception:
+            pass
+
+        try:
+            self.capR.release()
+        except Exception:
+            pass
+
         super().destroy_node()
 
 
@@ -221,7 +222,7 @@ class InferenceStereoNode(Node):
 
             if self.verbose:
                 self.get_logger().info(
-                    f"Published raw image from TCP server: seq={self.packet_counter}, shape={frame.shape[1]}x{frame.shape[0]}"
+                    f"Published raw image: seq={self.packet_counter}, shape={frame.shape[1]}x{frame.shape[0]}"
                 )
 
 
@@ -234,10 +235,6 @@ class InferenceStereoNode(Node):
             now = time.time()
             stamp_ns = int(now * 1e9)
 
-            # we store raw left frame here for visualization and inference
-            # this is not tightly related to PointCloud
-            self.pointcloud_helper.update_latest_image(left, stamp_ns)
-
         except Exception as exc:
             self.get_logger().error(f"Camera capture error: {exc}")
             return
@@ -248,6 +245,11 @@ class InferenceStereoNode(Node):
 
         left_rect = cv2.remap(left, self.mapLx, self.mapLy, cv2.INTER_LINEAR)
         right_rect = cv2.remap(right, self.mapRx, self.mapRy, cv2.INTER_LINEAR)
+
+        # we store raw left frame here for visualization and inference
+        # this is not tightly related to PointCloud
+        self.pointcloud_helper.update_latest_image(left, stamp_ns)
+        #self.pointcloud_helper.update_latest_image(left_rect, stamp_ns)  # optional - align image with PointCloud2
 
         left_gray = cv2.cvtColor(left_rect, cv2.COLOR_BGR2GRAY)
         right_gray = cv2.cvtColor(right_rect, cv2.COLOR_BGR2GRAY)
@@ -286,7 +288,7 @@ class InferenceStereoNode(Node):
         fps_now = 1.0 / dt if dt > 0 else 0.0
         self.fps_filtered = 0.9 * self.fps_filtered + 0.1 * fps_now if self.fps_filtered > 0 else fps_now
 
-        latest_msg = self.pointcloud_helper.build_pointcloud2(self.packet_counter, stamp_ns, self.grid_rows, self.grid_cols, points)
+        latest_msg = self.pointcloud_helper.build_pointcloud2(left_rect, stamp_ns, self.grid_rows, self.grid_cols, points)
 
         self.packet_counter += 1
         if self.log_every_n_packets > 0 and (self.packet_counter % self.log_every_n_packets == 0):
