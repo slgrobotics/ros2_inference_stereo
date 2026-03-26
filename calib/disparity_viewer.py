@@ -131,6 +131,36 @@ def overlay_cell_distances(
 
     return out
 
+def draw_left_right_labels(img, left_label="LEFT", right_label="RIGHT"):
+    out = img.copy()
+    h, w = out.shape[:2]
+    half_w = w // 2
+
+    # LEFT label
+    cv2.putText(
+        out,
+        left_label,
+        (20, 35),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1.0,
+        (0, 255, 255),
+        2,
+        cv2.LINE_AA,
+    )
+
+    # RIGHT label
+    cv2.putText(
+        out,
+        right_label,
+        (half_w + 20, 35),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        1.0,
+        (0, 255, 255),
+        2,
+        cv2.LINE_AA,
+    )
+
+    return out
 
 def make_raw_disparity_view(disparity, min_disp, num_disp):
     disp_vis = (disparity - min_disp) / num_disp
@@ -293,10 +323,12 @@ def main():
                 draw_horizontal_lines(left_rect, 40),
                 draw_horizontal_lines(right_rect, 40)
             ])
+            rect_preview = draw_left_right_labels(rect_preview, "LEFT", "RIGHT")
+
             cv2.putText(
                 rect_preview,
                 msg,
-                (20, 30),
+                (20, 70),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.7,
                 (0, 255, 255),
