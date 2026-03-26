@@ -31,18 +31,24 @@ class PointCloudHelper:
             PointField(name="col", offset=22, datatype=PointField.UINT16, count=1),
         ]
 
+    # Latest image - setter and getter:
+
+    def update_latest_image(self, image: np.ndarray, stamp_ns: int) -> None:
+        with self.latest_image_lock:
+            self.latest_image = image.copy() if image is not None else None
+            self.latest_image_stamp_ns = int(stamp_ns)
+
+    def get_latest_image_copy_with_stamp(self):
+        with self.latest_image_lock:
+            if self.latest_image is None:
+                return None, 0
+            return self.latest_image.copy(), self.latest_image_stamp_ns
 
     # RGB component helpers:
 
     def pack_rgb_float(self, r: int, g: int, b: int) -> float:
         rgb_uint32 = (int(r) << 16) | (int(g) << 8) | int(b)
         return struct.unpack("f", struct.pack("I", rgb_uint32))[0]
-
-    def get_latest_image_copy(self):
-        with self.latest_image_lock:
-            if self.latest_image is None:
-                return None
-            return self.latest_image.copy()
 
     def sample_cell_rgb(self, img: np.ndarray, row: int, col: int, rows: int, cols: int) -> float:
         h, w = img.shape[:2]
@@ -93,7 +99,7 @@ class PointCloudHelper:
         header.stamp.sec = int(stamp_ns // 1_000_000_000)
         header.stamp.nanosec = int(stamp_ns % 1_000_000_000)
 
-        img = self.get_latest_image_copy()
+        img, img_stamp_ns = self.get_latest_image_copy_with_stamp()
 
         colored_points = []
         for x, y, z, confidence, row, col in points:
