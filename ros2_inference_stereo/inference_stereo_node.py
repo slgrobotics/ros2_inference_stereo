@@ -52,7 +52,7 @@ from std_msgs.msg import Header
 from sensor_msgs.msg import Image
 from sensor_msgs.msg import PointCloud2
 
-from helpers_camera import CameraDriver, Picamera2Capture
+from ros2_inference_stereo.helper_picamera import CameraDriver, Picamera2Capture
 from helpers_pointcloud import PointCloudHelper
 
 

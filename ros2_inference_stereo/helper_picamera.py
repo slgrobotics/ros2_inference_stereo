@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
+import time
 import os
 import sys
-import time
 
 from typing import Tuple
 
@@ -19,10 +19,11 @@ from config import Camera
 
 
 class Picamera2Capture:
-    def __init__(self, picam: Picamera2, sensor_id: int):
+    def __init__(self, picam: Picamera2, sensor_id: int, scale_by: int = 1):
         self.picam = picam
         self.sensor_id = sensor_id
         self.started = False
+        self.scale_by = max(1, int(scale_by))
 
     def start(self) -> None:
         if not self.started:
@@ -45,7 +46,15 @@ class Picamera2Capture:
             elif frame.ndim == 3 and frame.shape[2] == 4:
                 frame = cv2.cvtColor(frame, cv2.COLOR_RGBA2BGR)
 
+            # Downscale here
+            if self.scale_by > 1:
+                h, w = frame.shape[:2]
+                new_w = w // self.scale_by
+                new_h = h // self.scale_by
+                frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
             return True, frame
+
         except Exception:
             return False, None
 
@@ -80,14 +89,18 @@ class CameraDriver:
 
         picam.configure(config)
 
-        cap = Picamera2Capture(picam, sensor_id)
+        cap = Picamera2Capture(
+            picam,
+            sensor_id,
+            scale_by=Camera.SCALE_BY
+        )
         cap.start()
         return cap
 
     @staticmethod
     def open_stereo_cameras(
-        width: int = Camera.WIDTH,
-        height: int = Camera.HEIGHT,
+        width: int = Camera.RAW_WIDTH,
+        height: int = Camera.RAW_HEIGHT,
         fps: int = Camera.FPS,
         left_id: int = Camera.LEFT,
         right_id: int = Camera.RIGHT,
@@ -100,3 +113,4 @@ class CameraDriver:
         time.sleep(startup_delay_sec)
 
         return cap_l, cap_r
+    
