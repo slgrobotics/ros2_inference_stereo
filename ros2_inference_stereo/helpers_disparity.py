@@ -22,7 +22,7 @@
 import cv2
 import numpy as np
 
-from config import Stereo, Streamer, Calib
+from config.config import Stereo, Streamer, Calib
 
 
 def make_valid_disparity_mask(disparity, min_valid_disp, invalid_left_cols, invalid_right_cols=0):
