@@ -147,7 +147,7 @@ def cam_to_ros(x_cam, y_cam, z_cam):
     # =====================================================
     # OpenCV stereo camera coordinates:
     #   x right, y down, z forward
-
+    #
     # ROS-like convention:
     #   x forward, y left, z up
     # =====================================================
@@ -168,7 +168,7 @@ def extract_sparse_points(
 ):
     # =====================================================
     # One representative point per cell.
-
+    #
     # Strategy:
     # - valid disparity mask in cell
     # - pick 95th percentile disparity

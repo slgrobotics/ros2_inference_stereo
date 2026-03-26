@@ -176,7 +176,9 @@ class InferenceStereoNode(Node):
         )
         self.pub_cloud = self.create_publisher(PointCloud2, cloud_topic, qos)
 
+        self.last_time = time.time()
         self.packet_counter = 0
+        self.fps_filtered = 0.0
 
         self.timer = self.create_timer(ticker_interval_sec, self.main_loop)
         self.image_timer = self.create_timer(
@@ -207,16 +209,15 @@ class InferenceStereoNode(Node):
             # get latest frame:
             frame, img_stamp_ns = self.pointcloud_helper.get_latest_image_copy_with_stamp()
 
+            if frame is None:
+                return
+
             msg = self.br.cv2_to_imgmsg(frame, encoding="bgr8")
 
             msg.header.stamp = self.get_clock().now().to_msg()
             msg.header.frame_id = self.frame_id
 
             self.image_pub.publish(msg)
-
-            with self.latest_image_lock:
-                self.latest_image = frame.copy()
-                self.latest_image_stamp_ns = img_stamp_ns
 
             if self.verbose:
                 self.get_logger().info(
@@ -226,82 +227,75 @@ class InferenceStereoNode(Node):
 
     def main_loop(self) -> None:
 
-        latest_msg = None
+        try:
+            okL, left = self.capL.read()
+            okR, right = self.capR.read()
+
+            now = time.time()
+            stamp_ns = int(now * 1e9)
+
+            # we store raw left frame here for visualization and inference
+            # this is not tightly related to PointCloud
+            self.pointcloud_helper.update_latest_image(left, stamp_ns)
+
+        except Exception as exc:
+            self.get_logger().error(f"Camera capture error: {exc}")
+            return
+
+        if not okL or not okR:
+            self.get_logger().error("bad camera read")
+            return
+
+        left_rect = cv2.remap(left, self.mapLx, self.mapLy, cv2.INTER_LINEAR)
+        right_rect = cv2.remap(right, self.mapRx, self.mapRy, cv2.INTER_LINEAR)
+
+        left_gray = cv2.cvtColor(left_rect, cv2.COLOR_BGR2GRAY)
+        right_gray = cv2.cvtColor(right_rect, cv2.COLOR_BGR2GRAY)
+
+        disparity = self.stereo.compute(left_gray, right_gray).astype(np.float32) / 16.0
+
+        invalid_left_cols = self.num_disp
+        invalid_right_cols = self.block_size // 2
+
+        valid_mask = make_valid_disparity_mask(
+            disparity,
+            min_valid_disp=Stereo.MIN_VALID_DISP,
+            invalid_left_cols=invalid_left_cols,
+            invalid_right_cols=invalid_right_cols,
+        )
+
+        points_3d = cv2.reprojectImageTo3D(disparity, self.Q, handleMissingValues=False)
+
+        points = extract_sparse_points(
+            disparity,
+            points_3d,
+            valid_mask=valid_mask,
+            rows=self.grid_rows,
+            cols=self.grid_cols,
+            max_range_m=Streamer.MAX_RANGE_M,
+            min_confidence=self.min_confidence,
+        )
+
+        # packet = pack_packet(seq, grid_rows, grid_cols, points, timestamp_ns)
+        # sock.sendto(packet, (udp_ip, udp_port))
+        # frame_buffer.update(left_rect, seq, timestamp_ns)
+
         now = time.time()
-        stamp_ns = int(now * 1e9)
-        last_time = now
-        fps_filtered = 0.0
+        dt = now - self.last_time
+        self.last_time = now
+        fps_now = 1.0 / dt if dt > 0 else 0.0
+        self.fps_filtered = 0.9 * self.fps_filtered + 0.1 * fps_now if self.fps_filtered > 0 else fps_now
 
-        while True:
+        latest_msg = self.pointcloud_helper.build_pointcloud2(self.packet_counter, stamp_ns, self.grid_rows, self.grid_cols, points)
 
-            points = None
-
-            try:
-                okL, left = self.capL.read()
-                okR, right = self.capR.read()
-
-                now = time.time()
-                stamp_ns = int(now * 1e9)
-
-                self.pointcloud_helper.update_latest_image(left, stamp_ns)
-
-            except Exception as exc:
-                self.get_logger().error(f"Camera capture error: {exc}")
-                return
-
-            if not okL or not okR:
-                self.get_logger().error("bad camera read")
-                continue
-
-            left_rect = cv2.remap(left, self.mapLx, self.mapLy, cv2.INTER_LINEAR)
-            right_rect = cv2.remap(right, self.mapRx, self.mapRy, cv2.INTER_LINEAR)
-
-            left_gray = cv2.cvtColor(left_rect, cv2.COLOR_BGR2GRAY)
-            right_gray = cv2.cvtColor(right_rect, cv2.COLOR_BGR2GRAY)
-
-            disparity = self.stereo.compute(left_gray, right_gray).astype(np.float32) / 16.0
-
-            invalid_left_cols = self.num_disp
-            invalid_right_cols = self.block_size // 2
-
-            valid_mask = make_valid_disparity_mask(
-                disparity,
-                min_valid_disp=Stereo.MIN_VALID_DISP,
-                invalid_left_cols=invalid_left_cols,
-                invalid_right_cols=invalid_right_cols,
+        self.packet_counter += 1
+        if self.log_every_n_packets > 0 and (self.packet_counter % self.log_every_n_packets == 0):
+            self.get_logger().info(
+                f"seq={self.packet_counter}  grid={self.grid_rows}x{self.grid_cols}  num_points={len(points)}  fps={self.fps_filtered:.2f}"
             )
 
-            points_3d = cv2.reprojectImageTo3D(disparity, self.Q, handleMissingValues=False)
-
-            points = extract_sparse_points(
-                disparity,
-                points_3d,
-                valid_mask=valid_mask,
-                rows=self.grid_rows,
-                cols=self.grid_cols,
-                max_range_m=Streamer.MAX_RANGE_M,
-                min_confidence=self.min_confidence,
-            )
-
-            # packet = pack_packet(seq, grid_rows, grid_cols, points, timestamp_ns)
-            # sock.sendto(packet, (udp_ip, udp_port))
-            # frame_buffer.update(left_rect, seq, timestamp_ns)
-
-            dt = now - last_time
-            last_time = now
-            fps_now = 1.0 / dt if dt > 0 else 0.0
-            fps_filtered = 0.9 * fps_filtered + 0.1 * fps_now if fps_filtered > 0 else fps_now
-
-            latest_msg = self.pointcloud_helper.build_pointcloud2(self.packet_counter, stamp_ns, self.grid_rows, self.grid_cols, points)
-
-            self.packet_counter += 1
-            if self.log_every_n_packets > 0 and (self.packet_counter % self.log_every_n_packets == 0):
-                self.get_logger().info(
-                    f"seq={self.packet_counter}  grid={self.grid_rows}x{self.grid_cols}  num_points={len(points)}  fps={fps_filtered:.2f}"
-                )
-
-            if latest_msg is not None:
-                self.pub_cloud.publish(latest_msg)
+        if latest_msg is not None:
+            self.pub_cloud.publish(latest_msg)
 
 
 def main(args=None):
