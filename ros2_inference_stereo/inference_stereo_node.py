@@ -297,7 +297,7 @@ class InferenceStereoNode(Node):
             self.packet_counter += 1
             if self.log_every_n_packets > 0 and (self.packet_counter % self.log_every_n_packets == 0):
                 self.get_logger().info(
-                    f"seq={self.packet_counter}  grid={self.grid_rows}x{self.grid_cols}  points={len(points)}  num_points={points.count}  fps={fps_filtered:.2f}"
+                    f"seq={self.packet_counter}  grid={self.grid_rows}x{self.grid_cols}  num_points={len(points)}  fps={fps_filtered:.2f}"
                 )
 
             if latest_msg is not None:
