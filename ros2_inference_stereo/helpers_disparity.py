@@ -164,7 +164,7 @@ def extract_sparse_points(
     rows,
     cols,
     max_range_m,
-    min_confidence,
+    min_disp_confidence,
 ):
     # =====================================================
     # One representative point per cell.
@@ -191,7 +191,7 @@ def extract_sparse_points(
             cell_valid = valid_mask[y0:y1, x0:x1]
 
             valid_fraction = float(np.count_nonzero(cell_valid)) / float(cell_disp.size)
-            if valid_fraction < min_confidence:
+            if valid_fraction < min_disp_confidence:
                 continue
 
             valid_values = cell_disp[cell_valid]

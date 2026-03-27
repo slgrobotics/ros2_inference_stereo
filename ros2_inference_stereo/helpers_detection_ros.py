@@ -4,7 +4,7 @@
 Helpers for converting model detections into ROS2 Detection2DArray messages.
 """
 
-from typing import Iterable, Optional, Set
+from typing import Iterable, Optional, Set, List
 
 from std_msgs.msg import Header
 from vision_msgs.msg import (
@@ -17,6 +17,7 @@ from vision_msgs.msg import (
     ObjectHypothesisWithPose,
 )
 
+from ultralytics import DetectionResult
 
 class DetectionRosHelper:
     def __init__(
@@ -77,7 +78,7 @@ class DetectionRosHelper:
 
     def build_detection_array_msg(
         self,
-        detections,
+        detections: List[DetectionResult],
         stamp,
         source_frame_id: Optional[str] = None,
     ) -> Detection2DArray:

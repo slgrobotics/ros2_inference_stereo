@@ -43,9 +43,11 @@ def generate_launch_description():
             'far_smoothing_factor': 1.0,
             'color_patch_fraction': 0.5,  # center patch size relative to cell
             'use_mean_color': True,
-            'min_confidence': 0.02,
+            'min_valid_disp': 1.0,
+            'min_disp_confidence': 0.02,  # do not publish if stereo disparity confidence is below this threshold
             'pointcloud_delay_sec': 0.02, # short "sleep" after pointcloud processing to free CPU
             'detect_delay_sec': 0.02,     # short "sleep" after detections processing to free CPU
+            'min_confidence': 0.6,        # object detection confidence threshold
             'log_every_n_packets': 10,    # 0 for no log
         }]
         # parameters=[params_file]  # Load params from YAML instead

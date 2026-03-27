@@ -12,7 +12,7 @@ class Camera:    # parameters related to camera
     #       run ../tests/print_sensor_modes.py and look for "crop_limits: (0, 0, 3280, 2464)"
     # =====================================================
 
-    RAW_WIDTH = 1640  # what camera mode is used during capture
+    RAW_WIDTH = 1640  # what IMX219 camera mode is used during capture
     RAW_HEIGHT = 1232
     SCALE_BY = 2   # 1 = no scaling, 2 = half...
     WIDTH = RAW_WIDTH // SCALE_BY     # what is passed after capture to be processed
@@ -40,7 +40,6 @@ class Stereo:    # parameters related to stereo algorithms
     # Depth filtering (reasonable defaults):
     MIN_VALID_DISP = 1.0
     MAX_RANGE_M = 5.0
-    MIN_CONFIDENCE = 0.02
 
 class Calib:     # parameters used during calibration
     # =====================================================
@@ -63,17 +62,4 @@ class Calib:     # parameters used during calibration
     IMAGE_EXTENSIONS = ("*.png", "*.jpg", "*.jpeg", "*.bmp")
     DELETE_BAD_AUTOMATICALLY = True   # set True to auto-delete pairs where either side fails
     CALIBRATION_FILE = f"calib_{Camera.WIDTH}x{Camera.HEIGHT}.npz"  # produced during calibration
-
-class Streamer:
-    # =====================================================
-    # Runtime streaming and visualization parameters.
-    #
-    # Controls behavior of the stereo depth streaming pipeline, including maximum
-    # depth range and initial display mode (raw disparity or depth heatmap).
-    #
-    # These settings influence visualization and downstream perception output.
-    # =====================================================
-
-    MAX_RANGE_M = 5.0
-    START_IN_HEATMAP_MODE = False  # False = disparity, True = depth heatmap
 

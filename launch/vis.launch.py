@@ -58,7 +58,7 @@ def generate_launch_description():
             'detection_topic': 'image_inference_detections',
             #'face_detected_sound': 'my_face.wav',
             'face_detected_text': 'I see you!',
-            'min_confidence': 0.6,
+            'min_confidence': 0.6,     # object detection confidence
             'face_cooldown_sec': 2.0,
             'gesture_cooldown_sec': 1.0,
             'camera_center_x': 320.0,  # Assuming 640x480 input images. Adjust if different.

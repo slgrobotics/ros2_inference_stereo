@@ -14,11 +14,13 @@ inference_stereo_node:
     far_smoothing_factor: 1.0
     color_patch_fraction: 0.5   # center patch size relative to cell
     use_mean_color: True
+    min_valid_disp: 1.0
+    min_disp_confidence: 0.02   # do not publish if stereo disparity confidence is below this threshold
     pointcloud_delay_sec: 0.02  # short "sleep" after pointcloud processing to free CPU
     detect_delay_sec: 0.02      # short "sleep" after detections processing to free CPU
     log_every_n_packets: 10     # 0 for no log
     # inference related:
-    min_confidence: 0.02        # do not publish if below this confidence threshold
+    min_confidence: 0.6         # object detection confidence threshold
     objects_allowed: ['']       # Empty list means allow all detected objects.
     #objects_allowed: ['person', 'cup', 'bottle', 'cell phone', 'banana', 'book', 'scissors', 'dog', 'cat']  # Not case sensitive.
 
@@ -31,7 +33,7 @@ perception_adapter:
     detection_topic: 'image_inference_detections'
     #face_detected_sound: 'my_face.wav'
     face_detected_text: 'I see you!'
-    min_confidence: 0.6
+    min_confidence: 0.6  # object detection confidence threshold
     face_cooldown_sec: 2.0
     gesture_cooldown_sec: 1.0
     camera_center_x: 320.0  # Assuming 640x480 input images. Adjust if different.

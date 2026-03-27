@@ -34,7 +34,7 @@ THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_DIR = os.path.abspath(os.path.join(THIS_DIR, "..", "config"))
 sys.path.append(CONFIG_DIR)
 
-from config import Camera, Calib
+from config import Camera, Calib, Stereo
 from helper_picamera import CameraDriver
 
 
@@ -79,8 +79,8 @@ def overlay_cell_distances(
     baseline_m,
     rows=10,
     cols=10,
-    min_valid_disp=1.0,
-    max_depth_cm=999,
+    min_valid_disp=Stereo.MIN_VALID_DISP,
+    max_depth_cm=Stereo.MAX_RANGE_M,
 ):
     # =====================================================
     # For each cell, find the largest valid disparity (= closest object),
@@ -260,8 +260,8 @@ def main():
                 baseline_m=baseline_m,
                 rows=10,
                 cols=10,
-                min_valid_disp=1.0,
-                max_depth_cm=999,
+                min_valid_disp=Stereo.MIN_VALID_DISP,
+                max_depth_cm=Stereo.MAX_RANGE_M,
             )
             view_mode = "heatmap"
         else:

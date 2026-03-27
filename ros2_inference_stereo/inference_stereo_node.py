@@ -45,7 +45,7 @@ from sensor_msgs.msg import Image, CompressedImage
 from vision_msgs.msg import Detection2DArray
 from sensor_msgs.msg import PointCloud2
 
-from config.config import Camera, Stereo, Streamer
+from config.config import Camera
 from ros2_inference_stereo.helpers_inference import ObjectDetector
 from ros2_inference_stereo.helpers_detection_ros import DetectionRosHelper
 from ros2_inference_stereo.helper_picamera import CameraDriver
@@ -74,9 +74,12 @@ class InferenceStereoNode(Node):
         self.declare_parameter("far_smoothing_factor", 1.0)
         self.declare_parameter("color_patch_fraction", 0.5)   # center patch size relative to cell
         self.declare_parameter("use_mean_color", True)
-        self.declare_parameter("min_confidence", 0.02)
+        self.declare_parameter("max_pointcloud_range_m", 5.0) # cut-off range for detecting pointcloud points
+        self.declare_parameter("min_valid_disp", 1.0)
+        self.declare_parameter("min_disp_confidence", 0.02)   # do not publish if stereo disparity confidence is below this threshold
         self.declare_parameter("pointcloud_delay_sec", 0.02)  # short "sleep" after pointcloud processing to free CPU
         self.declare_parameter("detect_delay_sec", 0.02)      # short "sleep" after detections processing to free CPU
+        self.declare_parameter("min_confidence", 0.6)         # minimal confidence threshold for object detection
         self.declare_parameter("log_every_n_packets", 10)     # 0 for no log
 
         self.verbose = bool(self.get_parameter("verbose").value)
@@ -91,11 +94,15 @@ class InferenceStereoNode(Node):
         self.far_smoothing_factor = float(self.get_parameter("far_smoothing_factor").value)
         self.color_patch_fraction = float(self.get_parameter("color_patch_fraction").value)
         self.use_mean_color = bool(self.get_parameter("use_mean_color").value)
-        self.min_confidence = float(self.get_parameter("min_confidence").value)
+        self.max_pointcloud_range_m = float(self.get_parameter("max_pointcloud_range_m").value)
+        self.min_valid_disp = float(self.get_parameter("min_valid_disp").value)
+        self.min_disp_confidence = float(self.get_parameter("min_disp_confidence").value)
         self.pointcloud_delay_sec = float(self.get_parameter("pointcloud_delay_sec").value)
         self.detect_delay_sec = float(self.get_parameter("detect_delay_sec").value)
+        self.min_confidence = float(self.get_parameter("min_confidence").value)
         self.log_every_n_packets = int(self.get_parameter("log_every_n_packets").value)
 
+        # we use "Camera.*" settings because they were used during calibration and must be consistent
         det_img_h, det_img_w = ObjectDetector.compute_detection_size(Camera.HEIGHT, Camera.WIDTH, stride=32)
 
         self.get_logger().info(f"inference image size: w={det_img_w} h={det_img_h}")
@@ -103,14 +110,14 @@ class InferenceStereoNode(Node):
         self.detector = ObjectDetector(
             model_path=self.model_path,
             imgsz=(det_img_h, det_img_w),  # must be multiple of max stride 32: 820 updating to [832]
-            conf_threshold=0.25,
+            conf_threshold=self.min_confidence,
             iou_threshold=0.45,
             device="cpu",
         )
 
         self.detection_ros_helper = DetectionRosHelper(
             frame_id=self.frame_id,
-            min_confidence=0.25,
+            min_confidence=self.min_confidence,
             allowed_labels=["person", "dog", "cat"],
         )
 
@@ -349,7 +356,7 @@ class InferenceStereoNode(Node):
 
             valid_mask = make_valid_disparity_mask(
                 disparity,
-                min_valid_disp=Stereo.MIN_VALID_DISP,
+                min_valid_disp=self.min_valid_disp,
                 invalid_left_cols=invalid_left_cols,
                 invalid_right_cols=invalid_right_cols,
             )
@@ -362,8 +369,8 @@ class InferenceStereoNode(Node):
                 valid_mask=valid_mask,
                 rows=self.grid_rows,
                 cols=self.grid_cols,
-                max_range_m=Streamer.MAX_RANGE_M,
-                min_confidence=self.min_confidence,
+                max_range_m=self.max_pointcloud_range_m,
+                min_disp_confidence=self.min_disp_confidence,
             )
 
             # packet = pack_packet(seq, grid_rows, grid_cols, points, timestamp_ns)
