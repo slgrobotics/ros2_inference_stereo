@@ -202,7 +202,11 @@ class InferenceStereoNode(Node):
         self.packet_counter = 0
         self.fps_filtered = 0.0
 
-        self.timer = self.create_timer(ticker_interval_sec, self.main_loop)
+        self.timer = self.create_timer(
+            ticker_interval_sec,
+            self.pointcloud_publish_callback
+        )
+
         self.image_timer = self.create_timer(
             self.request_image_every_sec,
             self.image_publish_callback,
@@ -281,7 +285,9 @@ class InferenceStereoNode(Node):
             self.detection_pub.publish(det_msg)
 
 
-    def main_loop(self) -> None:
+    def pointcloud_publish_callback(self) -> None:
+
+        t0 = time.perf_counter()
 
         try:
             okL, left = self.capL.read()
@@ -345,10 +351,13 @@ class InferenceStereoNode(Node):
 
         latest_msg = self.pointcloud_helper.build_pointcloud2(left_rect, stamp_ns, self.grid_rows, self.grid_cols, points)
 
+        t1 = time.perf_counter()
+        dt_ms = (t1 - t0) * 1000.0
+
         self.packet_counter += 1
         if self.log_every_n_packets > 0 and (self.packet_counter % self.log_every_n_packets == 0):
             self.get_logger().info(
-                f"seq={self.packet_counter}  grid={self.grid_rows}x{self.grid_cols}  num_points={len(points)}  fps={self.fps_filtered:.2f}"
+                f"seq={self.packet_counter}  time: {dt_ms:.2f} ms  grid={self.grid_rows}x{self.grid_cols}  num_points={len(points)}  fps={self.fps_filtered:.2f}"
             )
 
         if latest_msg is not None:
