@@ -208,7 +208,7 @@ class InferenceStereoNode(Node):
 
         self.detections_timer = self.create_timer(
             self.detect_delay_sec,
-            self.image_publish_callback,
+            self.detections_publish_callback,
             callback_group=self.det_group,
             autostart=False,
         )
