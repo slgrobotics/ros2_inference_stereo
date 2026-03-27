@@ -2,25 +2,25 @@
 inference_stereo_node:
   ros__parameters:
     verbose: True        # If true - print debug info.
-    ticker_interval_sec: 0.1   # 10 Hz UDP socket poll timer
-    #image_topic: '/camera/image_raw/compressed'   # for bounding boxes overlay
+    calibration_file: '/home/ros/rpi5_ws/install/ros2_inference_stereo/share/ros2_inference_stereo/config/calib_820x616.npz'
+    model_path: 'models/yolo11n.pt'  # relative to where you launch, e.g. "~/rpi5_ws/models/yolo11n.pt"
+     #image_topic: '/camera/image_raw/compressed'   # for bounding boxes overlay
     image_topic: 'camera/image_raw'  # preview in RViz2
     cloud_topic: 'stereo/sparse_cloud'
     detection_topic: 'image_inference_detections'
     frame_id: 'stereo_camera'
-    log_every_n_packets: 10    # 0 for no log
-    color_patch_fraction: 0.5  # center patch size relative to cell
+    grid_size: 16  # Grid size NxN for sparse sampling
+    close_cutout_factor: 1.0
+    far_smoothing_factor: 1.0
+    color_patch_fraction: 0.5   # center patch size relative to cell
     use_mean_color: True
-    request_image_every_sec: 0.5
-    jpeg_max_width: 320
-    jpeg_max_height: 180
-    jpeg_quality: 60
+    pointcloud_delay_sec: 0.02  # short "sleep" after pointcloud processing to free CPU
+    detect_delay_sec: 0.02      # short "sleep" after detections processing to free CPU
+    log_every_n_packets: 10     # 0 for no log
     # inference related:
-    startup_delay_sec: 5.0 # model warm-up
-    min_confidence: 0.6    # do not publish if below this confidence threshold
-    objects_allowed: ['']  # Empty list means allow all detected objects.
+    min_confidence: 0.02        # do not publish if below this confidence threshold
+    objects_allowed: ['']       # Empty list means allow all detected objects.
     #objects_allowed: ['person', 'cup', 'bottle', 'cell phone', 'banana', 'book', 'scissors', 'dog', 'cat']  # Not case sensitive.
-    stats_period_sec: 5.0  # how often to collect and print statistics
 
 
 # Perception adapter (BT topics relay) configuration

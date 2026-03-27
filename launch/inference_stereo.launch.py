@@ -44,12 +44,9 @@ def generate_launch_description():
             'color_patch_fraction': 0.5,  # center patch size relative to cell
             'use_mean_color': True,
             'min_confidence': 0.02,
-            'ticker_interval_sec': 0.1,   # 10 Hz UDP socket poll timer
+            'pointcloud_delay_sec': 0.02, # short "sleep" after pointcloud processing to free CPU
+            'detect_delay_sec': 0.02,     # short "sleep" after detections processing to free CPU
             'log_every_n_packets': 10,    # 0 for no log
-            'request_image_every_sec': 0.5,
-            'jpeg_max_width': 320,
-            'jpeg_max_height': 180,
-            'jpeg_quality': 60,
         }]
         # parameters=[params_file]  # Load params from YAML instead
     )
