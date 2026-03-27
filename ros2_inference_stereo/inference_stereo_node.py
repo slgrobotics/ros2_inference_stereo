@@ -58,6 +58,8 @@ class InferenceStereoNode(Node):
     def __init__(self) -> None:
         super().__init__("inference_stereo_node")
 
+        self.get_logger().info("inference_stereo_node started")
+
         self.declare_parameter("verbose", False)
         self.declare_parameter("calibration_file", "config/calib_820x616.npz")
         self.declare_parameter("model_path", "models/yolo11n.pt")
@@ -99,6 +101,8 @@ class InferenceStereoNode(Node):
         self.jpeg_quality = int(self.get_parameter("jpeg_quality").value)
 
         det_img_h, det_img_w = ObjectDetector.compute_detection_size(Camera.HEIGHT, Camera.WIDTH, stride=32)
+
+        self.get_logger().info(f"inference image size: w={det_img_w} h={det_img_h}")
 
         self.detector = ObjectDetector(
             model_path=self.model_path,
@@ -254,7 +258,17 @@ class InferenceStereoNode(Node):
                     f"Published raw image: seq={self.packet_counter}, shape={frame.shape[1]}x{frame.shape[0]}"
                 )
 
+            t0 = time.perf_counter()
+
             detections = self.detector.infer(frame)
+
+            t1 = time.perf_counter()
+            dt_ms = (t1 - t0) * 1000.0
+
+            self.get_logger().info(f"Inference time: {dt_ms:.2f} ms - {len(detections)} detections:")
+            for det in detections:
+                x1, y1, x2, y2 = [int(round(v)) for v in det.bbox_xyxy]
+                self.get_logger().info(f"  {x1},{y1} {x2},{y2} - {det.label} {det.confidence:.2f}")
 
             #dbg = self.detector.draw_detections(frame, detections)  # image with detections overlay
 
