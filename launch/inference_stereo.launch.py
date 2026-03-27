@@ -6,6 +6,10 @@ from launch_ros.actions import Node
 #
 # See https://github.com/slgrobotics/ros2_inference_stereo
 #
+# Install dependencies:
+#   sudo apt install ros-jazzy-vision-msgs
+#   python3 -m pip install ultralytics "numpy<2" --break-system-packages
+#
 # Run it on Raspberry Pi with binocular cameras:
 #   colcon build; source install/setup.bash; ros2 launch ros2_inference_stereo inference_stereo.launch.py
 #
@@ -29,6 +33,7 @@ def generate_launch_description():
         parameters=[{
             'verbose': True,        # If true - print debug info.
             'calibration_file': calib_file,
+            'model_path': 'models/yolo11n.pt',  # relative to where you launch, e.g. "~/rpi5_ws/models/yolo11n.pt"
             'image_topic': "camera/image_raw",
             'cloud_topic': "stereo/sparse_cloud",
             'detection_topic': 'image_inference_detections',

@@ -43,7 +43,7 @@ from sensor_msgs.msg import Image
 from vision_msgs.msg import Detection2DArray
 from sensor_msgs.msg import PointCloud2
 
-from config.config import Stereo, Streamer
+from config.config import Camera, Stereo, Streamer
 from ros2_inference_stereo.helpers_inference import ObjectDetector
 from ros2_inference_stereo.helpers_detection_ros import DetectionRosHelper
 from ros2_inference_stereo.helper_picamera import CameraDriver
@@ -98,9 +98,11 @@ class InferenceStereoNode(Node):
         self.jpeg_max_height = int(self.get_parameter("jpeg_max_height").value)
         self.jpeg_quality = int(self.get_parameter("jpeg_quality").value)
 
+        det_img_h, det_img_w = ObjectDetector.compute_detection_size(Camera.HEIGHT, Camera.WIDTH, stride=32)
+
         self.detector = ObjectDetector(
             model_path=self.model_path,
-            imgsz=820,
+            imgsz=(det_img_h, det_img_w),  # must be multiple of max stride 32: 820 updating to [832]
             conf_threshold=0.25,
             iou_threshold=0.45,
             device="cpu",

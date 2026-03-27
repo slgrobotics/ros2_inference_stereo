@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import List, Tuple
 
+import math
 import cv2
 from ultralytics import YOLO
 
@@ -20,7 +21,7 @@ class ObjectDetector:
     def __init__(
         self,
         model_path: str,
-        imgsz: int = 640,
+        imgsz: Tuple[int, int] = (640, 832),  # (height, width) both must be divisible by 32
         conf_threshold: float = 0.25,
         iou_threshold: float = 0.45,
         device: str = "cpu",
@@ -32,6 +33,7 @@ class ObjectDetector:
         self.device = device
 
         self.model = YOLO(model_path)
+
 
     def infer(self, frame_bgr) -> List[DetectionResult]:
         results = self.model.predict(
@@ -73,6 +75,13 @@ class ObjectDetector:
             )
 
         return detections
+
+    @staticmethod
+    def compute_detection_size(height, width, stride=32) -> Tuple[int, int]:  # (height, width)
+        new_h = int(math.ceil(height / stride) * stride)
+        new_w = int(math.ceil(width / stride) * stride)
+        return (new_h, new_w)
+
 
     def draw_detections(self, frame_bgr, detections: List[DetectionResult]):
         out = frame_bgr.copy()
