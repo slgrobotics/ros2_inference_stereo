@@ -41,7 +41,7 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CompressedImage
 from vision_msgs.msg import Detection2DArray
 from sensor_msgs.msg import PointCloud2
 
@@ -180,12 +180,14 @@ class InferenceStereoNode(Node):
         self.br = CvBridge()
 
         qos = QoSProfile(
-            reliability=ReliabilityPolicy.BEST_EFFORT,
+            reliability=ReliabilityPolicy.RELIABLE,
             history=HistoryPolicy.KEEP_LAST,
             depth=5,
         )
 
         self.image_pub = self.create_publisher(Image, image_topic, qos)
+
+        self.image_compressed_pub = self.create_publisher(CompressedImage, image_topic + "/compressed", qos)
 
         self.pub_cloud = self.create_publisher(PointCloud2, cloud_topic, qos)
 
@@ -262,7 +264,18 @@ class InferenceStereoNode(Node):
             #msg.header.stamp = self.get_clock().now().to_msg()
             msg.header.frame_id = self.frame_id
 
+            # Raw
             self.image_pub.publish(msg)
+
+            # Compressed
+            compressed_msg = CompressedImage()
+            compressed_msg.header = msg.header
+            compressed_msg.format = "jpeg"
+
+            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 80]
+            compressed_msg.data = cv2.imencode(".jpg", frame, encode_param)[1].tobytes()
+
+            self.image_compressed_pub.publish(compressed_msg)
 
             if self.verbose:
                 self.get_logger().info(
