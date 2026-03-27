@@ -209,7 +209,7 @@ class InferenceStereoNode(Node):
 
         self.image_timer = self.create_timer(
             self.request_image_every_sec,
-            self.image_publish_callback,
+            self.detections_publish_callback,
         )
 
         self.get_logger().info(
@@ -240,7 +240,7 @@ class InferenceStereoNode(Node):
         super().destroy_node()
 
 
-    def image_publish_callback(self):
+    def detections_publish_callback(self):
 
             # get latest frame:
             frame, img_stamp_ns = self.pointcloud_helper.get_latest_image_copy_with_stamp()
