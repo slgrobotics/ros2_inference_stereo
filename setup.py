@@ -36,9 +36,9 @@ setup(
     license='MIT',
      entry_points={
          'console_scripts': [
-            f'image_inference_node = {package_name}.image_inference_node:main',
             f'perception_adapter = {package_name}.perception_adapter:main',
             f"inference_stereo_node = {package_name}.inference_stereo_node:main",
+            f"detection_visualizer = {package_name}.detection_visualizer_node:main",
          ],
      },
 )

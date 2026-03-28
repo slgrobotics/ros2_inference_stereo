@@ -74,7 +74,8 @@ def generate_launch_description():
     )
 
     detections_visualization_node = Node(
-        package='detection_visualizer',
+        package='ros2_inference_stereo',
+        #package='detection_visualizer',   # you can use ROS2 official https://github.com/ros2/detection_visualizer
         executable='detection_visualizer',
         name='detection_visualizer',
         output='screen',
