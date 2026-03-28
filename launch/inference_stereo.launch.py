@@ -47,8 +47,10 @@ def generate_launch_description():
             'min_disp_confidence': 0.02,  # do not publish if stereo disparity confidence is below this threshold
             'pointcloud_delay_sec': 0.02, # short "sleep" after pointcloud processing to free CPU
             'detect_delay_sec': 0.02,     # short "sleep" after detections processing to free CPU
-            'min_confidence': 0.6,        # object detection confidence threshold
             'log_every_n_packets': 10,    # 0 for no log
+            'min_confidence': 0.6,        # object detection confidence threshold
+            'objects_allowed': [''],  # Empty list means allow all detected objects.
+            #'objects_allowed': ['person', 'cup', 'bottle', 'cell phone', 'banana', 'book', 'scissors', 'dog', 'cat'], # Not case sensitive.
         }]
         # parameters=[params_file]  # Load params from YAML instead
     )

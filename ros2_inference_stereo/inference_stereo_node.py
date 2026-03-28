@@ -37,6 +37,7 @@ from cv_bridge import CvBridge
 
 import rclpy
 from rclpy.node import Node
+from rclpy.parameter import Parameter
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
@@ -79,6 +80,7 @@ class InferenceStereoNode(Node):
         self.declare_parameter("min_disp_confidence", 0.02)   # do not publish if stereo disparity confidence is below this threshold
         self.declare_parameter("pointcloud_delay_sec", 0.02)  # short "sleep" after pointcloud processing to free CPU
         self.declare_parameter("detect_delay_sec", 0.02)      # short "sleep" after detections processing to free CPU
+        self.declare_parameter("objects_allowed", Parameter.Type.STRING_ARRAY)
         self.declare_parameter("min_confidence", 0.6)         # minimal confidence threshold for object detection
         self.declare_parameter("log_every_n_packets", 10)     # 0 for no log
 
@@ -102,6 +104,25 @@ class InferenceStereoNode(Node):
         self.min_confidence = float(self.get_parameter("min_confidence").value)
         self.log_every_n_packets = int(self.get_parameter("log_every_n_packets").value)
 
+        objects_allowed_param = list(
+            self.get_parameter("objects_allowed")
+                .get_parameter_value()
+                .string_array_value
+        )
+
+        self.objects_allowed = {
+            s.strip().lower()
+            for s in objects_allowed_param
+            if s.strip()
+        }
+
+        if self.objects_allowed:
+            self.get_logger().info(
+                f"Allowed to detect: {sorted(self.objects_allowed)}"
+            )
+        else:
+            self.get_logger().info("'objects_allowed' parameter is not set; allowing all detected objects")
+
         # we use "Camera.*" settings because they were used during calibration and must be consistent
         det_img_h, det_img_w = ObjectDetector.compute_detection_size(Camera.HEIGHT, Camera.WIDTH, stride=32)
 
@@ -118,7 +139,7 @@ class InferenceStereoNode(Node):
         self.detection_ros_helper = DetectionRosHelper(
             frame_id=self.frame_id,
             min_confidence=self.min_confidence,
-            allowed_labels=["person", "dog", "cat"],
+            allowed_labels=self.objects_allowed,
         )
 
         self.pointcloud_helper = PointCloudHelper(self.use_mean_color, self.color_patch_fraction, self.frame_id)
