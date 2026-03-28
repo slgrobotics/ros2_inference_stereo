@@ -17,7 +17,7 @@ from vision_msgs.msg import (
     ObjectHypothesisWithPose,
 )
 
-from ultralytics import DetectionResult
+from ros2_inference_stereo.helpers_inference import DetectionResult
 
 class DetectionRosHelper:
     def __init__(
@@ -52,7 +52,7 @@ class DetectionRosHelper:
 
         return True
 
-    def _build_detection_msg(self, det, header: Header) -> Detection2D:
+    def _build_detection_msg(self, det: DetectionResult, header: Header) -> Detection2D:
         cx, cy, w, h = det.bbox_xywh
 
         detection = Detection2D()
@@ -86,9 +86,11 @@ class DetectionRosHelper:
         Convert a list of DetectionResult-like objects into Detection2DArray.
 
         Expected detection object fields:
-          - label: str
-          - confidence: float
-          - bbox_xywh: (cx, cy, w, h)
+            class_id: int
+            label: str
+            confidence: float
+            bbox_xyxy=(x1, y1, x2, y2),
+            bbox_xywh=(cx, cy, w, h),
         """
         header = self._build_header(stamp, source_frame_id)
 
