@@ -38,6 +38,18 @@ class DetectionVisualizerNode(Node):
     def __init__(self):
         super().__init__('detection_visualizer')
 
+        self.declare_parameter("verbose", False)
+        self.declare_parameter("image_topic", "camera/image_raw")
+        self.declare_parameter("detection_topic", "image_inference_detections")
+        self.declare_parameter("overlay_image_topic", "image_inference_overlay")
+        self.declare_parameter("time_slop", 1.0)
+
+        self.verbose = bool(self.get_parameter("verbose").value)
+        self.image_topic = str(self.get_parameter("image_topic").value)
+        self.detection_topic = str(self.get_parameter("detection_topic").value)
+        self.overlay_image_topic = str(self.get_parameter("overlay_image_topic").value)
+        self.time_slop = float(self.get_parameter("time_slop").value)
+
         self._bridge = cv_bridge.CvBridge()
 
         output_image_qos = QoSProfile(
@@ -46,21 +58,25 @@ class DetectionVisualizerNode(Node):
             reliability=QoSReliabilityPolicy.RELIABLE,
             depth=1)
 
-        self._image_pub = self.create_publisher(Image, '~/dbg_images', output_image_qos)
+        self._image_pub = self.create_publisher(Image, self.overlay_image_topic, output_image_qos)
 
-        self._image_sub = message_filters.Subscriber(self, Image, '~/images')
-        self._detections_sub = message_filters.Subscriber(self, Detection2DArray, '~/detections')
+        # The two incoming messages on a single callback require synchronization.
+        # "self.time_slop" defines tolerance to header timestamps:
+        self._image_sub = message_filters.Subscriber(self, Image, self.image_topic)
+        self._detections_sub = message_filters.Subscriber(self, Detection2DArray, self.detection_topic)
 
         self._synchronizer = message_filters.ApproximateTimeSynchronizer(
-            (self._image_sub, self._detections_sub), 5, 0.01)
+            (self._image_sub, self._detections_sub), queue_size=5, slop=self.time_slop)
+        
         self._synchronizer.registerCallback(self.on_detections)
 
-        self.get_logger().info("detection_visualizer started")
+        self.get_logger().info(f"detection_visualizer started: '{self.image_topic}' + '{self.detection_topic}' --> '{self.overlay_image_topic}' time_slop: {self.time_slop}  verbose: {self.verbose}")
 
     def on_detections(self, image_msg, detections_msg):
         cv_image = self._bridge.imgmsg_to_cv2(image_msg, desired_encoding='bgr8')
 
-        self.get_logger().info(f"Received: {len(detections_msg.detections)} detections")
+        if self.verbose:
+            self.get_logger().info(f"Received: {len(detections_msg.detections)} detections")
 
         # Draw boxes on image
         for detection in detections_msg.detections:
@@ -72,10 +88,13 @@ class DetectionVisualizerNode(Node):
                     max_score = hypothesis.score
                     max_class = hypothesis.class_id
             if max_class is None:
-                self.get_logger().warning("Failed to find class with highest score")
+                if self.verbose:
+                    self.get_logger().warning("Failed to find class with highest score")
                 continue
 
-            self.get_logger().info(f"IP: processing class_id={max_class}  score={max_score}")
+            if self.verbose:
+                self.get_logger().info(f"IP: processing class_id={max_class}  score={max_score}")
+
             cx = detection.bbox.center.position.x
             cy = detection.bbox.center.position.y
             sx = detection.bbox.size_x
@@ -101,7 +120,9 @@ class DetectionVisualizerNode(Node):
         detection_image_msg = self._bridge.cv2_to_imgmsg(cv_image, encoding=image_msg.encoding)
         detection_image_msg.header = image_msg.header
 
-        self.get_logger().info("IP: Publishing detection_image_msg")
+        if self.verbose:
+            self.get_logger().info("IP: Publishing detection_image_msg")
+
         self._image_pub.publish(detection_image_msg)
 
 

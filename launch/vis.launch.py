@@ -73,9 +73,10 @@ def generate_launch_description():
         # parameters=[params_file]  # Load params from YAML instead
     )
 
-    detections_visualization_node = Node(
-        package='ros2_inference_stereo',
-        #package='detection_visualizer',   # you can use ROS2 official https://github.com/ros2/detection_visualizer
+    # you can use ROS2 official https://github.com/ros2/detection_visualizer
+    # if you publish synchronized timestamps between image and detections
+    detection_visualizer_node = Node(
+        package='detection_visualizer',   
         executable='detection_visualizer',
         name='detection_visualizer',
         output='screen',
@@ -86,9 +87,25 @@ def generate_launch_description():
         ]
     )
 
+    # or my copy of the above (verbose version, with "time_slop" and other parameters)
+    my_detection_visualizer_node = Node(
+        package='ros2_inference_stereo',
+        executable='detection_visualizer',
+        name='detection_visualizer',
+        output='screen',
+        parameters=[{
+            "verbose": False,        # If true - print debug info
+            'image_topic': 'camera/image_raw',
+            'detection_topic': 'image_inference_detections',
+            'overlay_image_topic': 'image_inference_overlay',
+            'time_slop': 1.0,       # "self.time_slop" defines tolerance to header timestamps
+        }]
+        # parameters=[params_file]  # Load params from YAML instead
+    )
+
     return LaunchDescription([
         perception_adapter_node,
-        detections_visualization_node,
+        my_detection_visualizer_node,
         tf_to_map,
         rviz,
     ])
