@@ -75,6 +75,8 @@ def generate_launch_description():
 
     # you can use ROS2 official https://github.com/ros2/detection_visualizer
     # if you publish synchronized timestamps between image and detections
+    # make sure you have the following package in "src" directory:
+    #   git clone https://github.com/ros2/detection_visualizer.git
     detection_visualizer_node = Node(
         package='detection_visualizer',   
         executable='detection_visualizer',
