@@ -315,10 +315,11 @@ class InferenceStereoNode(Node):
             t1 = time.perf_counter()
             dt_ms = (t1 - t0) * 1000.0
 
-            self.get_logger().info(f"Inference time: {dt_ms:.2f} ms - {len(detections)} detections:")
-            for det in detections:
-                x1, y1, x2, y2 = [int(round(v)) for v in det.bbox_xyxy]
-                self.get_logger().info(f"  {x1},{y1} {x2},{y2} - {det.label} {det.confidence:.2f}")
+            if self.verbose:
+                self.get_logger().info(f"Inference time: {dt_ms:.2f} ms - {len(detections)} detections:")
+                for det in detections:
+                    x1, y1, x2, y2 = [int(round(v)) for v in det.bbox_xyxy]
+                    self.get_logger().info(f"  {x1},{y1} {x2},{y2} - {det.label} {det.confidence:.2f}")
 
             #dbg = self.detector.draw_detections(latest_image, detections)  # image with detections overlay
 
