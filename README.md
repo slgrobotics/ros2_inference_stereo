@@ -13,6 +13,27 @@ self-contained perception pipeline suitable for edge robotics applications.
 
 <img alt="RPI5_stereo_RViz" src="https://github.com/user-attachments/assets/ba255693-3e80-4704-a0b7-ae2338170fba" />
 
+### Performance metrics
+
+Here are the actual message rates:
+```
+ros2 topic hz /camera/image_raw
+average rate: 0.969
+
+ros2 topic hz /image_inference_detections
+average rate: 0.992
+
+ros2 topic hz /stereo/sparse_cloud
+average rate: 1.974
+```
+All cores on RPi5 stay 80..90% busy, so there isn't much else the machine can do without an AI [accelerator](https://www.amazon.com/AI-Kit-Raspberry-Pi-Acceleration/dp/B0D8PF8WT4).
+
+**Note:** there are two parameters that let processing loops sleep between cycles, higher values free CPUs:
+```
+'pointcloud_delay_sec': 0.02, # short "sleep" after pointcloud processing to free CPU
+'detect_delay_sec': 0.02,     # short "sleep" after detections processing to free CPU
+```
+
 ### Hardware & Prerequisites
 
 * **Hardware:**
