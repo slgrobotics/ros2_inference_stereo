@@ -98,7 +98,7 @@ def generate_launch_description():
             'image_topic': 'camera/image_raw',
             'detection_topic': 'image_inference_detections',
             'overlay_image_topic': 'image_inference_overlay',
-            'time_slop': 1.0,       # "self.time_slop" defines tolerance to header timestamps
+            'time_slop': 0.01,       # "self.time_slop" defines tolerance to header timestamps
         }]
         # parameters=[params_file]  # Load params from YAML instead
     )

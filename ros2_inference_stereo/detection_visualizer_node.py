@@ -42,7 +42,7 @@ class DetectionVisualizerNode(Node):
         self.declare_parameter("image_topic", "camera/image_raw")
         self.declare_parameter("detection_topic", "image_inference_detections")
         self.declare_parameter("overlay_image_topic", "image_inference_overlay")
-        self.declare_parameter("time_slop", 1.0)
+        self.declare_parameter("time_slop", 0.01)
 
         self.verbose = bool(self.get_parameter("verbose").value)
         self.image_topic = str(self.get_parameter("image_topic").value)
@@ -113,7 +113,11 @@ class DetectionVisualizerNode(Node):
                 cv2.drawContours(cv_image, [box], 0, color, thickness)
 
             label = f"{max_class} {max_score:.3f}"
-            pos = (min_pt[0], max_pt[1])
+
+            x = max(0, min_pt[0] + 5)
+            y = max(20, max_pt[1] - 5)  # 20 avoids clipping text baseline
+            pos = (x, y)
+
             font = cv2.FONT_HERSHEY_SIMPLEX
             cv2.putText(cv_image, label, pos, font, 0.75, color, 1, cv2.LINE_AA)
             
