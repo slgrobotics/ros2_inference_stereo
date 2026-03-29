@@ -16,16 +16,20 @@ self-contained perception pipeline suitable for edge robotics applications.
 ### Hardware & Prerequisites
 
 * **Hardware:**
-  * Raspberry Pi 5 (8GB RAM)
+  * Raspberry Pi 5 (8GB) - please review this [guide](https://github.com/slgrobotics/articubot_one/wiki/Properly-feeding-your-Raspberry-Pi-5).
   * Dual *Arducam 8MP IMX219 Camera [Module](https://www.amazon.com/dp/B09VSRH14M)* (CSI).
-* **OS:** Ubuntu 24.04 LTS (Noble Numbat).
+* **OS:** Ubuntu 24.04 LTS (Noble Numbat). You need Desktop version for calibration.
 * **ROS Distro:** ROS 2 Jazzy Jalisco.
+* a 32 GB **SD card** is sufficient ("[high endurance](https://www.amazon.com/dp/B07P14QHB7)" type recommended).
+* Connect Ethernet cable, keyboard and monitor while installing and configuring. Ensure SSH access.
 
 > **Important:**
 > * Standard Ubuntu drivers do not support the CSI-connected cameras correctly out of the box. You MUST either:
 >   - install pre-build binaries as described below
 >   - or, build the Raspberry Pi fork of `libcamera` from [source](https://github.com/erykpawelek/libcamera_ros2_setup).
 > * "Binocular" [cameras](https://www.amazon.com/IMX219-83-Stereo-Camera-Compatible-Applications/dp/B088RFT412) for Jetson Nano do not come with proper cables and are useless for Raspberry Pi 5
+
+Here is my DIY setup:
 
 <img width="2301" height="746" alt="Screenshot from 2026-03-29 09-48-03" src="https://github.com/user-attachments/assets/1d8dd47f-b123-488f-8385-1a31b78f4167" />
 
@@ -93,43 +97,74 @@ self-contained perception pipeline suitable for edge robotics applications.
 
 Stereo vision relies on properly calibrated cameras.
 
-## Quick Start
-
-### 1. Build
+On the Raspberry Pi 5:
 
 ```bash
-cd ~/rpi5_ws
-colcon build --packages-select ros2_inference_stereo
-source install/setup.bash
+mkdir -p ~/inf_stereo_ws/src
+cd ~/inf_stereo_ws/src
+git clone https://github.com/slgrobotics/ros2_inference_stereo.git
 ```
 
-### 2. Run the Node
+The *[calib](https://github.com/slgrobotics/ros2_inference_stereo/tree/main/calib)* folder contains necessary scripts:
+- `capture_stereo_pairs.py` allows you to collect a set of 50 *stereo pairs*, while positioning the checkerboard in every possible way
+- `calib_file_generator.py` generates a calibration file (calib_820x616.npz)
+- `disparity_viewer.py` lets you validate calibration before you go into ROS2
+- other files are useful for debugging etc.
 
-```bash
-ros2 run ros2_inference_stereo inference_stereo_node
+To make a large checkerboard I printed several 3x2 boards and glued them to a cardboard.
+
+Make sure that the sizes of your squares and camera base are reflected in [config.py](https://github.com/slgrobotics/ros2_inference_stereo/blob/main/config/config.py)
+
+Calibration board generator:
+- https://markhedleyjones.com/projects/calibration-checkerboard-collection
+- https://markhedleyjones.com/media/projects/calibration-checkerboard-collection/Checkerboard-A4-30mm-8x6.pdf
+- https://markhedleyjones.com/media/projects/calibration-checkerboard-collection/Checkerboard-A4-70mm-3x2.pdf
+
+Here is how to use the checkerboard during calibration: https://youtu.be/G-Iw35VecI8
+
+## Quick Start - ROS node on RPi5 and RViz on the workstation
+
+### (on Raspberry Pi) Install prerequisites
+
+Edit `sudo vi /boot/firmware/config.txt` to enable cameras, reboot:
+```
+[all]
+camera_auto_detect=0
+dtoverlay=imx219,cam0
+dtoverlay=imx219,cam1
 ```
 
-### 3. (Optional) Run Detection Visualizer
+Follow this [guide](https://github.com/slgrobotics/robots_bringup/blob/main/Docs/Sensors/Camera.md#installation) to install *libcamera/picamera2* binaries.
 
-```bash
-ros2 run ros2_inference_stereo detection_visualizer \
-  --ros-args \
-  -p image_topic:=/camera/image_raw \
-  -p detection_topic:=/image_inference_detections \
-  -p overlay_image_topic:=/image_inference_overlay
+Use these [scripts](https://github.com/slgrobotics/ros2_inference_stereo/tree/main/tests) to verify that the cameras are working.
+
+You need a ROS package and YOLO driver from Ultralytics (takes time to install):
+```
+sudo apt install ros-${ROS_DISTRO}-vision-msgs
+python3 -m pip install ultralytics "numpy<2" --break-system-packages
+
 ```
 
-### 4. View Topics
+### (on Raspberry Pi) Build and run
 
 ```bash
-# Raw camera image
-ros2 run image_view image_view --ros-args -r image:=/camera/image_raw
+mkdir -p ~/inf_stereo_ws/src
+cd ~/inf_stereo_ws/src
+git clone https://github.com/slgrobotics/ros2_inference_stereo.git
+cd ~/inf_stereo_ws
 
-# Overlay with detections
-ros2 run image_view image_view --ros-args -r image:=/image_inference_overlay
+colcon build; source install/setup.bash; ros2 launch ros2_inference_stereo inference_stereo.launch.py
+```
 
-# Point cloud (RViz2 recommended)
-rviz2
+### (On the workstation) Run Detection Visualizer and RViz2
+
+```bash
+mkdir -p ~/inf_stereo_ws/src
+cd ~/inf_stereo_ws/src
+git clone https://github.com/slgrobotics/ros2_inference_stereo.git
+cd ~/inf_stereo_ws
+
+colcon build; source install/setup.bash; ros2 launch ros2_inference_stereo vis.launch.py
 ```
 
 ## System Architecture
