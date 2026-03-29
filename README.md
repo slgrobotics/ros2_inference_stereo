@@ -159,7 +159,7 @@ Follow this [guide](https://github.com/slgrobotics/robots_bringup/blob/main/Docs
 
 Use these [scripts](https://github.com/slgrobotics/ros2_inference_stereo/tree/main/tests) to verify that the cameras are working.
 
-**Important:** [calibrate](https://github.com/slgrobotics/ros2_inference_stereo) your cameras.
+**Important:** [calibrate](https://github.com/slgrobotics/ros2_inference_stereo?tab=readme-ov-file#important-calibration-is-not-optional) your cameras.
 
 You need a ROS package and YOLO driver from Ultralytics (takes time to install):
 ```
