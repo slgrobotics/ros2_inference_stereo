@@ -42,7 +42,7 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 
-from sensor_msgs.msg import Image, CompressedImage
+from sensor_msgs.msg import Image  #, CompressedImage
 from vision_msgs.msg import Detection2DArray
 from sensor_msgs.msg import PointCloud2
 
@@ -137,7 +137,6 @@ class InferenceStereoNode(Node):
         )
 
         self.detection_ros_helper = DetectionRosHelper(
-            frame_id=self.frame_id,
             min_confidence=self.min_confidence,
             allowed_labels=self.objects_allowed,
         )
@@ -161,11 +160,11 @@ class InferenceStereoNode(Node):
         self.PL = calib["PL"]
         self.T = calib["T"]
 
-        self.width = int(calib["image_width"])
-        self.height = int(calib["image_height"])
+        # self.width = int(calib["image_width"])
+        # self.height = int(calib["image_height"])
 
-        self.focal_px = float(self.PL[0, 0])
-        self.baseline_m = float(np.linalg.norm(self.T))
+        # self.focal_px = float(self.PL[0, 0])
+        # self.baseline_m = float(np.linalg.norm(self.T))
 
         # min_disp = minimum disparity the matcher will search
         # the algorithm searches disparities in: [min_disp, min_disp + num_disp]
@@ -215,7 +214,7 @@ class InferenceStereoNode(Node):
 
         self.image_pub = self.create_publisher(Image, image_topic, qos)
 
-        self.image_compressed_pub = self.create_publisher(CompressedImage, image_topic + "/compressed", qos)
+        #self.image_compressed_pub = self.create_publisher(CompressedImage, image_topic + "/compressed", qos)
 
         self.pub_cloud = self.create_publisher(PointCloud2, cloud_topic, qos)
 
@@ -252,12 +251,12 @@ class InferenceStereoNode(Node):
 
     def destroy_node(self):
         try:
-            self.timer.cancel()
+            self.pointcloud_timer.cancel()
         except Exception:
             pass
 
         try:
-            self.image_timer.cancel()
+            self.detections_timer.cancel()
         except Exception:
             pass
 
@@ -279,40 +278,39 @@ class InferenceStereoNode(Node):
         self.detections_timer.cancel()
         try:
 
-            # get latest frame:
-            frame, img_stamp_ns = self.pointcloud_helper.get_latest_image_copy_with_stamp()
+            # get latest camera image:
+            latest_image, img_time_ros = self.pointcloud_helper.get_latest_image_copy_with_header_stamp()
 
-            if frame is None:
+            if latest_image is None or img_time_ros is None:
                 return
 
-            msg = self.br.cv2_to_imgmsg(frame, encoding="bgr8")
+            msg = self.br.cv2_to_imgmsg(latest_image, encoding="bgr8")
 
-            msg.header.stamp.sec = int(img_stamp_ns // 1_000_000_000)
-            msg.header.stamp.nanosec = int(img_stamp_ns % 1_000_000_000)
-            #msg.header.stamp = self.get_clock().now().to_msg()
+            # that's when the image was captured:
+            msg.header.stamp = img_time_ros
             msg.header.frame_id = self.frame_id
 
             # Raw
             self.image_pub.publish(msg)
 
-            # Compressed
-            compressed_msg = CompressedImage()
-            compressed_msg.header = msg.header
-            compressed_msg.format = "jpeg"
+            ## Publish compressed image
+            # compressed_msg = CompressedImage()
+            # compressed_msg.header = msg.header
+            # compressed_msg.format = "jpeg"
 
-            encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 80]
-            compressed_msg.data = cv2.imencode(".jpg", frame, encode_param)[1].tobytes()
+            # encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 80]
+            # compressed_msg.data = cv2.imencode(".jpg", latest_image, encode_param)[1].tobytes()
 
-            self.image_compressed_pub.publish(compressed_msg)
+            # self.image_compressed_pub.publish(compressed_msg)
 
             if self.verbose:
                 self.get_logger().info(
-                    f"Published raw image: seq={self.packet_counter}, shape={frame.shape[1]}x{frame.shape[0]}"
+                    f"Published raw image: seq={self.packet_counter}, shape={latest_image.shape[1]}x{latest_image.shape[0]}"
                 )
 
             t0 = time.perf_counter()
 
-            detections = self.detector.infer(frame)
+            detections = self.detector.infer(latest_image)
 
             t1 = time.perf_counter()
             dt_ms = (t1 - t0) * 1000.0
@@ -322,18 +320,18 @@ class InferenceStereoNode(Node):
                 x1, y1, x2, y2 = [int(round(v)) for v in det.bbox_xyxy]
                 self.get_logger().info(f"  {x1},{y1} {x2},{y2} - {det.label} {det.confidence:.2f}")
 
-            #dbg = self.detector.draw_detections(frame, detections)  # image with detections overlay
+            #dbg = self.detector.draw_detections(latest_image, detections)  # image with detections overlay
 
+            # we want both messages synchronized (have same header stamp) to allow small "time_slop" in detection_visualizer
             det_msg = self.detection_ros_helper.build_detection_array_msg(
                 detections=detections,
-                stamp=self.get_clock().now().to_msg(),
-                source_frame_id=self.frame_id,
+                header=msg.header
             )
 
             self.detection_pub.publish(det_msg)
 
         finally:
-            self.detections_timer.timer_period_ns = int(self.detect_delay_sec * 1e9)
+            #self.detections_timer.timer_period_ns = int(self.detect_delay_sec * 1e9)
             self.detections_timer.reset()
 
 
@@ -348,8 +346,7 @@ class InferenceStereoNode(Node):
                 okL, left = self.capL.read()
                 okR, right = self.capR.read()
 
-                now = time.time()
-                stamp_ns = int(now * 1e9)
+                time_ros = self.get_clock().now().to_msg()
 
             except Exception as exc:
                 self.get_logger().error(f"Camera capture error: {exc}")
@@ -364,8 +361,8 @@ class InferenceStereoNode(Node):
 
             # we store raw left frame here for visualization and inference
             # this is not tightly related to PointCloud
-            self.pointcloud_helper.update_latest_image(left, stamp_ns)
-            #self.pointcloud_helper.update_latest_image(left_rect, stamp_ns)  # optional - align image with PointCloud2
+            self.pointcloud_helper.update_latest_image(left, time_ros)
+            #self.pointcloud_helper.update_latest_image(left_rect, time_ros)  # optional - align image with PointCloud2
 
             left_gray = cv2.cvtColor(left_rect, cv2.COLOR_BGR2GRAY)
             right_gray = cv2.cvtColor(right_rect, cv2.COLOR_BGR2GRAY)
@@ -394,9 +391,9 @@ class InferenceStereoNode(Node):
                 min_disp_confidence=self.min_disp_confidence,
             )
 
-            # packet = pack_packet(seq, grid_rows, grid_cols, points, timestamp_ns)
+            # packet = pack_packet(seq, grid_rows, grid_cols, points, time_ros)
             # sock.sendto(packet, (udp_ip, udp_port))
-            # frame_buffer.update(left_rect, seq, timestamp_ns)
+            # frame_buffer.update(left_rect, seq, time_ros)
 
             now = time.time()
             dt = now - self.last_time
@@ -404,7 +401,7 @@ class InferenceStereoNode(Node):
             fps_now = 1.0 / dt if dt > 0 else 0.0
             self.fps_filtered = 0.9 * self.fps_filtered + 0.1 * fps_now if self.fps_filtered > 0 else fps_now
 
-            latest_msg = self.pointcloud_helper.build_pointcloud2(left_rect, stamp_ns, self.grid_rows, self.grid_cols, points)
+            latest_msg = self.pointcloud_helper.build_pointcloud2(left_rect, time_ros, self.grid_rows, self.grid_cols, points)
 
             t1 = time.perf_counter()
             dt_ms = (t1 - t0) * 1000.0
@@ -419,7 +416,7 @@ class InferenceStereoNode(Node):
                 self.pub_cloud.publish(latest_msg)
 
         finally:
-            self.pointcloud_timer.timer_period_ns = int(self.pointcloud_delay_sec * 1e9)
+            #self.pointcloud_timer.timer_period_ns = int(self.pointcloud_delay_sec * 1e9)
             self.pointcloud_timer.reset()
 
 

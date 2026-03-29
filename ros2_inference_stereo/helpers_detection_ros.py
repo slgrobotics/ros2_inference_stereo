@@ -1,11 +1,8 @@
-#!/usr/bin/env python3
-
 """
 Helpers for converting model detections into ROS2 Detection2DArray messages.
 """
 
 from typing import Iterable, Optional, Set, List
-from builtin_interfaces.msg import Time
 
 from std_msgs.msg import Header
 from vision_msgs.msg import (
@@ -24,11 +21,9 @@ from ros2_inference_stereo.helpers_inference import DetectionResult
 class DetectionRosHelper:
     def __init__(
         self,
-        frame_id: str,
         min_confidence: float = 0.25,
         allowed_labels: Optional[Iterable[str]] = None,
     ):
-        self.frame_id = frame_id
         self.min_confidence = float(min_confidence)
         self.allowed_labels: Set[str] = {
             str(s).strip().lower()
@@ -54,16 +49,11 @@ class DetectionRosHelper:
 
     def build_detection_array_msg(
         self,
-        detections: List[DetectionResult],
-        stamp: Time,
-        source_frame_id: Optional[str] = None,
+        detections: Iterable[DetectionResult],
+        header: Header,
     ) -> Detection2DArray:
 
         msg = Detection2DArray()
-
-        header = Header()
-        header.stamp = stamp
-        header.frame_id = source_frame_id or self.frame_id
 
         for det in detections:
             if not self._passes_filters(det):

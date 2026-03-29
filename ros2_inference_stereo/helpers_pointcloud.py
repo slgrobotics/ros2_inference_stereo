@@ -1,30 +1,35 @@
-
 import threading
-
 import struct
 from typing import List, Tuple, Optional
+
 import numpy as np
 
 from std_msgs.msg import Header
+from builtin_interfaces.msg import Time
 from sensor_msgs.msg import PointCloud2, PointField
 from sensor_msgs_py import point_cloud2
 
+
 class PointCloudHelper:
 
-    def __init__(self, use_mean_color, color_patch_fraction, frame_id):
-
+    def __init__(
+        self,
+        use_mean_color: bool,
+        color_patch_fraction: float,
+        frame_id: str,
+    ):
         self.use_mean_color = use_mean_color
         self.color_patch_fraction = color_patch_fraction
         self.frame_id = frame_id
 
         self.latest_image: Optional[np.ndarray] = None
-        self.latest_image_stamp_ns = 0
+        self.latest_image_time_ros: Optional[Time] = None
         self.latest_image_lock = threading.Lock()
 
         self.fields = [
-            PointField(name="x", offset=0,  datatype=PointField.FLOAT32, count=1),
-            PointField(name="y", offset=4,  datatype=PointField.FLOAT32, count=1),
-            PointField(name="z", offset=8,  datatype=PointField.FLOAT32, count=1),
+            PointField(name="x", offset=0, datatype=PointField.FLOAT32, count=1),
+            PointField(name="y", offset=4, datatype=PointField.FLOAT32, count=1),
+            PointField(name="z", offset=8, datatype=PointField.FLOAT32, count=1),
             PointField(name="rgb", offset=12, datatype=PointField.FLOAT32, count=1),
             PointField(name="confidence", offset=16, datatype=PointField.FLOAT32, count=1),
             PointField(name="row", offset=20, datatype=PointField.UINT16, count=1),
@@ -33,16 +38,20 @@ class PointCloudHelper:
 
     # Latest image - setter and getter:
 
-    def update_latest_image(self, image: np.ndarray, stamp_ns: int) -> None:
+    def update_latest_image(self, image: Optional[np.ndarray], time_ros: Time) -> None:
         with self.latest_image_lock:
             self.latest_image = image.copy() if image is not None else None
-            self.latest_image_stamp_ns = int(stamp_ns)
+            self.latest_image_time_ros = time_ros
 
-    def get_latest_image_copy_with_stamp(self) -> Tuple[Optional[np.ndarray], int]:
+    def get_latest_image_copy_with_header_stamp(self) -> Tuple[Optional[np.ndarray], Optional[Time]]:
         with self.latest_image_lock:
-            if self.latest_image is None:
-                return None, 0
-            return self.latest_image.copy(), self.latest_image_stamp_ns
+            if self.latest_image is None or self.latest_image_time_ros is None:
+                return None, None
+
+            stamp = Time()
+            stamp.sec = self.latest_image_time_ros.sec
+            stamp.nanosec = self.latest_image_time_ros.nanosec
+            return self.latest_image.copy(), stamp
 
     # RGB component helpers:
 
@@ -81,7 +90,10 @@ class PointCloudHelper:
             mean_bgr = patch.reshape(-1, 3).mean(axis=0)
             b, g, r = [max(0, min(255, int(round(v)))) for v in mean_bgr]
         else:
-            b, g, r = [max(0, min(255, int(v))) for v in patch[patch.shape[0] // 2, patch.shape[1] // 2]]
+            b, g, r = [
+                max(0, min(255, int(v)))
+                for v in patch[patch.shape[0] // 2, patch.shape[1] // 2]
+            ]
 
         return self.pack_rgb_float(r, g, b)
 
@@ -89,23 +101,18 @@ class PointCloudHelper:
     def build_pointcloud2(
         self,
         image: Optional[np.ndarray],
-        stamp_ns: int,
+        time_ros: Time,
         rows: int,
         cols: int,
-        points: List[Tuple[float, float, float, float, int, int]],
+        points: List[Tuple[float, float, float, float, int, int]],  # (x, y, z, confidence, row, col)
     ) -> PointCloud2:
         header = Header()
         header.frame_id = self.frame_id
-        header.stamp.sec = int(stamp_ns // 1_000_000_000)
-        header.stamp.nanosec = int(stamp_ns % 1_000_000_000)
+        header.stamp = time_ros
 
         colored_points = []
         for x, y, z, confidence, row, col in points:
-            if image is not None:
-                rgb = self.sample_cell_rgb(image, row, col, rows, cols)
-            else:
-                rgb = self.pack_rgb_float(255, 0, 255)
-
+            rgb = self.sample_cell_rgb(image, row, col, rows, cols) if image is not None else self.pack_rgb_float(255, 0, 255)
             colored_points.append((x, y, z, rgb, confidence, row, col))
 
         msg = point_cloud2.create_cloud(header, self.fields, colored_points)
