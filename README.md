@@ -168,7 +168,7 @@ python3 -m pip install ultralytics "numpy<2" --break-system-packages
 
 ```
 
-### (on Raspberry Pi) Build and run
+### (On Raspberry Pi) Build and run
 
 ```bash
 mkdir -p ~/inf_stereo_ws/src
@@ -244,6 +244,12 @@ Capture + Rectification
 | `grid_rows`, `grid_cols` | Resolution of depth sampling grid   |
 | `time_slop`              | Sync tolerance for visualization    |
 | `use_mean_color`         | Use average color per grid cell     |
+
+## Behavior trees connection - Perception Adapter
+
+See this [guide](https://github.com/slgrobotics/ros2_jetson_nano_inference?tab=readme-ov-file#behavior-trees-connection---perception-adapter) for info.
+
+See this [guide](https://github.com/slgrobotics/slg_bt_plugins) for information on Behavior Trees *plugins*.
 
 ## Design Notes
 
