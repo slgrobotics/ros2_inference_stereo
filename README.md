@@ -199,6 +199,36 @@ cd ~/inf_stereo_ws
 colcon build; source install/setup.bash; ros2 launch ros2_inference_stereo vis.launch.py
 ```
 
+## Create a Linux service for on-boot autostart
+
+To turn your RPi5 into a headless "camera appliance" follow these steps:
+
+1. Create and populate launch folder:
+```
+mkdir ~/launch
+cd ~/launch
+# place bootup_launch.sh here:
+cp ~/robot_ws/src/ros2_inference_stereo/sys/bootup_launch.sh .
+```
+
+Try running the _bootup_launch.sh_ from the command line to see if anything fails.
+
+2. Deploy service description file:
+```
+sudo cp ~/robot_ws/src/ros2_inference_stereo/sys/robot.service /etc/systemd/system/.
+```
+
+3. Enable service:
+```
+sudo systemctl daemon-reload
+sudo systemctl enable robot.service
+sudo systemctl start robot.service
+```
+If all went well, the service will start automatically after you reboot the RPi, and all related nodes will show up on _rpt_ and _rpt_graph_
+
+**Note:** 
+1. Logs are stored in _/home/ros/.ros/log_ folder - these can grow if things go wrong.
+
 ## System Architecture
 
 This package is designed as a **modular perception pipeline** with clear separation between acquisition, processing, and ROS interfaces.
