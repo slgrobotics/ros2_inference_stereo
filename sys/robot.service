@@ -1,0 +1,16 @@
+# /etc/systemd/system/robot.service
+[Unit]
+Description=ros2_inference_stereo
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=ros
+Group=ros
+WorkingDirectory=/home/ros/launch
+ExecStart=/home/ros/launch/bootup_launch.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
