@@ -27,23 +27,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSDurabilityPolicy
 from rclpy.qos import QoSHistoryPolicy
-from rclpy.qos import QoSProfile
-from rclpy.qos import QoSReliabilityPolicy
-from sensor_msgs.msg import Image
-from vision_msgs.msg import Detection2DArray
-
-
-import sys
-import math
-
-import cv2
-import cv_bridge
-import message_filters
-import rclpy
-from rclpy.node import Node
-from rclpy.qos import QoSDurabilityPolicy
-from rclpy.qos import QoSHistoryPolicy
-from rclpy.qos import QoSProfile
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from rclpy.qos import QoSReliabilityPolicy
 from sensor_msgs.msg import Image
 from sensor_msgs.msg import CompressedImage
@@ -80,11 +64,27 @@ class DetectionVisualizerNode(Node):
             Image, self.overlay_image_topic, output_image_qos
         )
 
+        image_qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+        )
+
+        detection_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=5,
+        )
+
         # The two incoming messages on a single callback require synchronization.
         # "self.time_slop" defines tolerance to header timestamps:
         image_msg_type = CompressedImage if self._use_compressed else Image
-        self._image_sub = message_filters.Subscriber(self, image_msg_type, self.image_topic)
-        self._detections_sub = message_filters.Subscriber(self, Detection2DArray, self.detection_topic)
+        self._image_sub = message_filters.Subscriber(
+            self, image_msg_type, self.image_topic, qos_profile=image_qos
+        )
+        self._detections_sub = message_filters.Subscriber(
+            self, Detection2DArray, self.detection_topic, qos_profile=detection_qos
+        )
 
         self._synchronizer = message_filters.ApproximateTimeSynchronizer(
             (self._image_sub, self._detections_sub), queue_size=5, slop=self.time_slop)

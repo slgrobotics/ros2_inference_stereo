@@ -5,9 +5,9 @@ inference_stereo_node:
     log_every_n_packets: 10     # 0 for no log
     calibration_file: '/home/ros/robot_ws/install/ros2_inference_stereo/share/ros2_inference_stereo/config/calib_820x616.npz'
     model_path: 'models/yolo11n.pt'  # relative to where you launch, e.g. "~/robot_ws/models/yolo11n.pt"
-    #image_topic: 'camera/image_raw/compressed'   # for bounding boxes overlay preview in RViz2
-    image_topic: 'camera/image_raw'  # for bounding boxes overlay preview in RViz2
-    jpeg_quality: 80            # JPEG quality for compressed image output (1-100, higher is better quality and larger size)
+    image_topic: 'camera/image_raw/compressed'   # for bounding boxes overlay preview in RViz2
+    #image_topic: 'camera/image_raw'  # for bounding boxes overlay preview in RViz2, if uncompressed images are preferred
+    jpeg_quality: 80                 # JPEG quality for compressed image output (1-100, higher is better quality and larger size)
     cloud_topic: 'stereo/sparse_cloud'
     detection_topic: 'image_inference_detections'
     frame_id: 'stereo_camera'
