@@ -2,8 +2,8 @@
 inference_stereo_node:
   ros__parameters:
     verbose: True        # If true - print debug info.
-    calibration_file: '/home/ros/rpi5_ws/install/ros2_inference_stereo/share/ros2_inference_stereo/config/calib_820x616.npz'
-    model_path: 'models/yolo11n.pt'  # relative to where you launch, e.g. "~/rpi5_ws/models/yolo11n.pt"
+    calibration_file: '/home/ros/robot_ws/install/ros2_inference_stereo/share/ros2_inference_stereo/config/calib_820x616.npz'
+    model_path: 'models/yolo11n.pt'  # relative to where you launch, e.g. "~/robot_ws/models/yolo11n.pt"
      #image_topic: '/camera/image_raw/compressed'   # for bounding boxes overlay
     image_topic: 'camera/image_raw'  # preview in RViz2
     cloud_topic: 'stereo/sparse_cloud'

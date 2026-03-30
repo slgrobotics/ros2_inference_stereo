@@ -33,7 +33,7 @@ def generate_launch_description():
         parameters=[{
             'verbose': True,        # If true - print debug info.
             'calibration_file': calib_file,
-            'model_path': 'models/yolo11n.pt',  # relative to where you launch, e.g. "~/rpi5_ws/models/yolo11n.pt"
+            'model_path': 'models/yolo11n.pt',  # relative to where you launch, e.g. "~/robot_ws/models/yolo11n.pt"
             'image_topic': "camera/image_raw",
             'cloud_topic': "stereo/sparse_cloud",
             'detection_topic': 'image_inference_detections',
