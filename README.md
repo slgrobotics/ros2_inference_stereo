@@ -121,8 +121,8 @@ Stereo vision relies on properly calibrated cameras.
 On the Raspberry Pi 5:
 
 ```bash
-mkdir -p ~/inf_stereo_ws/src
-cd ~/inf_stereo_ws/src
+mkdir -p ~/robot_ws/src
+cd ~/robot_ws/src
 git clone https://github.com/slgrobotics/ros2_inference_stereo.git
 ```
 
@@ -180,10 +180,10 @@ python3 -m pip install ultralytics "numpy<2" --break-system-packages
 ### (On Raspberry Pi) Build and run
 
 ```bash
-mkdir -p ~/inf_stereo_ws/src
-cd ~/inf_stereo_ws/src
+mkdir -p ~/robot_ws/src
+cd ~/robot_ws/src
 git clone https://github.com/slgrobotics/ros2_inference_stereo.git
-cd ~/inf_stereo_ws
+cd ~/robot_ws
 
 colcon build; source install/setup.bash; ros2 launch ros2_inference_stereo inference_stereo.launch.py
 ```
