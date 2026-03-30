@@ -209,10 +209,22 @@ class InferenceStereoNode(Node):
         self.br = CvBridge()
         self._use_compressed = self.image_topic.endswith("/compressed")
 
-        qos = QoSProfile(
+        image_qos = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
             history=HistoryPolicy.KEEP_LAST,
             depth=1,
+        )
+
+        cloud_qos = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+        )
+
+        detection_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=5,
         )
 
         if self._use_compressed:
@@ -221,11 +233,11 @@ class InferenceStereoNode(Node):
         else:
             image_msg_type = Image
 
-        self.image_pub = self.create_publisher(image_msg_type, self.image_topic, qos)
+        self.image_pub = self.create_publisher(image_msg_type, self.image_topic, image_qos)
 
-        self.pub_cloud = self.create_publisher(PointCloud2, cloud_topic, qos)
+        self.pub_cloud = self.create_publisher(PointCloud2, cloud_topic, cloud_qos)
 
-        self.detection_pub = self.create_publisher(Detection2DArray, detection_topic, qos)
+        self.detection_pub = self.create_publisher(Detection2DArray, detection_topic, detection_qos)
 
         self.last_time = time.time()
         self.packet_counter = 0
