@@ -33,13 +33,30 @@ from sensor_msgs.msg import Image
 from vision_msgs.msg import Detection2DArray
 
 
+import sys
+import math
+
+import cv2
+import cv_bridge
+import message_filters
+import rclpy
+from rclpy.node import Node
+from rclpy.qos import QoSDurabilityPolicy
+from rclpy.qos import QoSHistoryPolicy
+from rclpy.qos import QoSProfile
+from rclpy.qos import QoSReliabilityPolicy
+from sensor_msgs.msg import Image
+from sensor_msgs.msg import CompressedImage
+from vision_msgs.msg import Detection2DArray
+
+
 class DetectionVisualizerNode(Node):
 
     def __init__(self):
         super().__init__('detection_visualizer')
 
         self.declare_parameter("verbose", False)
-        self.declare_parameter("image_topic", "camera/image_raw")
+        self.declare_parameter("image_topic", "camera/image_raw")  # or "camera/image_raw/compressed"
         self.declare_parameter("detection_topic", "image_inference_detections")
         self.declare_parameter("overlay_image_topic", "image_inference_overlay")
         self.declare_parameter("time_slop", 0.01)
@@ -51,6 +68,7 @@ class DetectionVisualizerNode(Node):
         self.time_slop = float(self.get_parameter("time_slop").value)
 
         self._bridge = cv_bridge.CvBridge()
+        self._use_compressed = self.image_topic.endswith("/compressed")
 
         output_image_qos = QoSProfile(
             history=QoSHistoryPolicy.KEEP_LAST,
@@ -58,22 +76,40 @@ class DetectionVisualizerNode(Node):
             reliability=QoSReliabilityPolicy.RELIABLE,
             depth=1)
 
-        self._image_pub = self.create_publisher(Image, self.overlay_image_topic, output_image_qos)
+        self._image_pub = self.create_publisher(
+            Image, self.overlay_image_topic, output_image_qos
+        )
 
         # The two incoming messages on a single callback require synchronization.
         # "self.time_slop" defines tolerance to header timestamps:
-        self._image_sub = message_filters.Subscriber(self, Image, self.image_topic)
+        image_msg_type = CompressedImage if self._use_compressed else Image
+        self._image_sub = message_filters.Subscriber(self, image_msg_type, self.image_topic)
         self._detections_sub = message_filters.Subscriber(self, Detection2DArray, self.detection_topic)
 
         self._synchronizer = message_filters.ApproximateTimeSynchronizer(
             (self._image_sub, self._detections_sub), queue_size=5, slop=self.time_slop)
-        
+
         self._synchronizer.registerCallback(self.on_detections)
 
-        self.get_logger().info(f"detection_visualizer started: '{self.image_topic}' + '{self.detection_topic}' --> '{self.overlay_image_topic}' time_slop: {self.time_slop}  verbose: {self.verbose}")
+        image_mode = "CompressedImage" if self._use_compressed else "Image"
+        self.get_logger().info(
+            f"detection_visualizer started: '{self.image_topic}' ({image_mode}) + "
+            f"'{self.detection_topic}' --> '{self.overlay_image_topic}' "
+            f"time_slop: {self.time_slop}  verbose: {self.verbose}"
+        )
+
+    def _to_cv_image(self, image_msg):
+        if self._use_compressed:
+            return self._bridge.compressed_imgmsg_to_cv2(image_msg, desired_encoding='bgr8')
+        return self._bridge.imgmsg_to_cv2(image_msg, desired_encoding='bgr8')
+
+    def _output_encoding(self, image_msg):
+        if self._use_compressed:
+            return 'bgr8'
+        return image_msg.encoding if image_msg.encoding else 'bgr8'
 
     def on_detections(self, image_msg, detections_msg):
-        cv_image = self._bridge.imgmsg_to_cv2(image_msg, desired_encoding='bgr8')
+        cv_image = self._to_cv_image(image_msg)
 
         if self.verbose:
             self.get_logger().info(f"Received: {len(detections_msg.detections)} detections")
@@ -104,6 +140,7 @@ class DetectionVisualizerNode(Node):
             max_pt = (round(cx + sx / 2.0), round(cy + sy / 2.0))
             color = (0, 255, 0)
             thickness = 1
+
             if detection.bbox.center.theta == 0.0:
                 cv2.rectangle(cv_image, min_pt, max_pt, color, thickness)
             else:
@@ -115,13 +152,15 @@ class DetectionVisualizerNode(Node):
             label = f"{max_class} {max_score:.3f}"
 
             x = max(0, min_pt[0] + 5)
-            y = max(20, max_pt[1] - 5)  # 20 avoids clipping text baseline
+            y = max(20, max_pt[1] - 5)
             pos = (x, y)
 
             font = cv2.FONT_HERSHEY_SIMPLEX
             cv2.putText(cv_image, label, pos, font, 0.75, color, 1, cv2.LINE_AA)
-            
-        detection_image_msg = self._bridge.cv2_to_imgmsg(cv_image, encoding=image_msg.encoding)
+
+        detection_image_msg = self._bridge.cv2_to_imgmsg(
+            cv_image, encoding=self._output_encoding(image_msg)
+        )
         detection_image_msg.header = image_msg.header
 
         if self.verbose:

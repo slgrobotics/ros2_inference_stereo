@@ -42,7 +42,7 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 
-from sensor_msgs.msg import Image  #, CompressedImage
+from sensor_msgs.msg import Image, CompressedImage
 from vision_msgs.msg import Detection2DArray
 from sensor_msgs.msg import PointCloud2
 
@@ -64,10 +64,12 @@ class InferenceStereoNode(Node):
         self.get_logger().info("inference_stereo_node started")
 
         self.declare_parameter("verbose", False)
+        self.declare_parameter("log_every_n_packets", 10)     # 0 for no log
         self.declare_parameter("calibration_file", "config/calib_820x616.npz")
         self.declare_parameter("model_path", "models/yolo11n.pt")
         self.declare_parameter("cloud_topic", "stereo/sparse_cloud")
-        self.declare_parameter("image_topic", "camera/image_raw")
+        self.declare_parameter("image_topic", "camera/image_raw")  # or "camera/image_raw/compressed"
+        self.declare_parameter("jpeg_quality", 80)            # JPEG quality for compressed image output (1-100, higher is better quality and larger size)
         self.declare_parameter("detection_topic", "image_inference_detections")
         self.declare_parameter("frame_id", "stereo_camera")
         self.declare_parameter("grid_size", 16)               # Grid size NxN for sparse sampling
@@ -82,13 +84,14 @@ class InferenceStereoNode(Node):
         self.declare_parameter("detect_delay_sec", 0.02)      # short "sleep" after detections processing to free CPU
         self.declare_parameter("objects_allowed", Parameter.Type.STRING_ARRAY)
         self.declare_parameter("min_confidence", 0.6)         # minimal confidence threshold for object detection
-        self.declare_parameter("log_every_n_packets", 10)     # 0 for no log
 
         self.verbose = bool(self.get_parameter("verbose").value)
+        self.log_every_n_packets = int(self.get_parameter("log_every_n_packets").value)
         self.calibration_file = str(self.get_parameter("calibration_file").value)
         self.model_path = str(self.get_parameter("model_path").value)
         cloud_topic = str(self.get_parameter("cloud_topic").value)
-        image_topic = str(self.get_parameter("image_topic").value)
+        self.image_topic = str(self.get_parameter("image_topic").value)
+        self.jpeg_quality = int(self.get_parameter("jpeg_quality").value)
         detection_topic = str(self.get_parameter("detection_topic").value)
         self.frame_id = str(self.get_parameter("frame_id").value)
         self.grid_size = int(self.get_parameter("grid_size").value)
@@ -102,7 +105,6 @@ class InferenceStereoNode(Node):
         self.pointcloud_delay_sec = float(self.get_parameter("pointcloud_delay_sec").value)
         self.detect_delay_sec = float(self.get_parameter("detect_delay_sec").value)
         self.min_confidence = float(self.get_parameter("min_confidence").value)
-        self.log_every_n_packets = int(self.get_parameter("log_every_n_packets").value)
 
         objects_allowed_param = list(
             self.get_parameter("objects_allowed")
@@ -205,16 +207,21 @@ class InferenceStereoNode(Node):
         self.capL, self.capR = CameraDriver.open_stereo_cameras()
 
         self.br = CvBridge()
+        self._use_compressed = self.image_topic.endswith("/compressed")
 
         qos = QoSProfile(
-            reliability=ReliabilityPolicy.RELIABLE,
+            reliability=ReliabilityPolicy.BEST_EFFORT,
             history=HistoryPolicy.KEEP_LAST,
-            depth=5,
+            depth=1,
         )
 
-        self.image_pub = self.create_publisher(Image, image_topic, qos)
+        if self._use_compressed:
+            image_msg_type = CompressedImage
+            self._jpeg_encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), self.jpeg_quality]
+        else:
+            image_msg_type = Image
 
-        #self.image_compressed_pub = self.create_publisher(CompressedImage, image_topic + "/compressed", qos)
+        self.image_pub = self.create_publisher(image_msg_type, self.image_topic, qos)
 
         self.pub_cloud = self.create_publisher(PointCloud2, cloud_topic, qos)
 
@@ -245,8 +252,9 @@ class InferenceStereoNode(Node):
         self.pointcloud_timer.reset()
         self.detections_timer.reset()
 
+        image_mode = "CompressedImage" if self._use_compressed else "Image"
         self.get_logger().info(
-            f"Publishing:  Image on '{image_topic}',  PointCloud2 on '{cloud_topic}',  Detection2DArray on '{detection_topic}'"
+            f"Publishing:  {image_mode} on '{self.image_topic}',  PointCloud2 on '{cloud_topic}',  Detection2DArray on '{detection_topic}'"
         )
 
     def destroy_node(self):
@@ -284,28 +292,28 @@ class InferenceStereoNode(Node):
             if latest_image is None or img_time_ros is None:
                 return
 
-            msg = self.br.cv2_to_imgmsg(latest_image, encoding="bgr8")
+            if self._use_compressed:
+                msg = CompressedImage()
+                msg.format = "jpeg"
+                ok, enc = cv2.imencode(".jpg", latest_image, self._jpeg_encode_param)
+                if not ok:
+                    self.get_logger().warning("Failed to JPEG-encode image")
+                    return
+                msg.data = enc.tobytes()                
+            else:
+                msg = self.br.cv2_to_imgmsg(latest_image, encoding="bgr8")
 
             # that's when the image was captured:
             msg.header.stamp = img_time_ros
             msg.header.frame_id = self.frame_id
 
-            # Raw
             self.image_pub.publish(msg)
 
-            ## Publish compressed image
-            # compressed_msg = CompressedImage()
-            # compressed_msg.header = msg.header
-            # compressed_msg.format = "jpeg"
-
-            # encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 80]
-            # compressed_msg.data = cv2.imencode(".jpg", latest_image, encode_param)[1].tobytes()
-
-            # self.image_compressed_pub.publish(compressed_msg)
-
             if self.verbose:
+                mode = "compressed" if self._use_compressed else "raw"
                 self.get_logger().info(
-                    f"Published raw image: seq={self.packet_counter}, shape={latest_image.shape[1]}x{latest_image.shape[0]}"
+                    f"Published {mode} image: seq={self.packet_counter}, "
+                    f"shape={latest_image.shape[1]}x{latest_image.shape[0]}"
                 )
 
             t0 = time.perf_counter()

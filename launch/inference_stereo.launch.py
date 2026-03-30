@@ -32,9 +32,11 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             'verbose': True,        # If true - print debug info.
+            'log_every_n_packets': 10,    # 0 for no log
             'calibration_file': calib_file,
             'model_path': 'models/yolo11n.pt',  # relative to where you launch, e.g. "~/robot_ws/models/yolo11n.pt"
-            'image_topic': "camera/image_raw",
+            'image_topic': "camera/image_raw",  # or "camera/image_raw/compressed"
+            'jpeg_quality': 80,            # JPEG quality for compressed image output (1-100, higher is better quality and larger size)
             'cloud_topic': "stereo/sparse_cloud",
             'detection_topic': 'image_inference_detections',
             'frame_id': "stereo_camera",
@@ -47,7 +49,6 @@ def generate_launch_description():
             'min_disp_confidence': 0.02,  # do not publish if stereo disparity confidence is below this threshold
             'pointcloud_delay_sec': 0.02, # short "sleep" after pointcloud processing to free CPU
             'detect_delay_sec': 0.02,     # short "sleep" after detections processing to free CPU
-            'log_every_n_packets': 10,    # 0 for no log
             'min_confidence': 0.6,        # object detection confidence threshold
             'objects_allowed': [''],  # Empty list means allow all detected objects.
             #'objects_allowed': ['person', 'cup', 'bottle', 'cell phone', 'banana', 'book', 'scissors', 'dog', 'cat'], # Not case sensitive.

@@ -2,10 +2,12 @@
 inference_stereo_node:
   ros__parameters:
     verbose: True        # If true - print debug info.
+    log_every_n_packets: 10     # 0 for no log
     calibration_file: '/home/ros/robot_ws/install/ros2_inference_stereo/share/ros2_inference_stereo/config/calib_820x616.npz'
     model_path: 'models/yolo11n.pt'  # relative to where you launch, e.g. "~/robot_ws/models/yolo11n.pt"
-     #image_topic: '/camera/image_raw/compressed'   # for bounding boxes overlay
-    image_topic: 'camera/image_raw'  # preview in RViz2
+    #image_topic: 'camera/image_raw/compressed'   # for bounding boxes overlay preview in RViz2
+    image_topic: 'camera/image_raw'  # for bounding boxes overlay preview in RViz2
+    jpeg_quality: 80            # JPEG quality for compressed image output (1-100, higher is better quality and larger size)
     cloud_topic: 'stereo/sparse_cloud'
     detection_topic: 'image_inference_detections'
     frame_id: 'stereo_camera'
@@ -18,12 +20,10 @@ inference_stereo_node:
     min_disp_confidence: 0.02   # do not publish if stereo disparity confidence is below this threshold
     pointcloud_delay_sec: 0.02  # short "sleep" after pointcloud processing to free CPU
     detect_delay_sec: 0.02      # short "sleep" after detections processing to free CPU
-    log_every_n_packets: 10     # 0 for no log
     # inference related:
     min_confidence: 0.6         # object detection confidence threshold
     objects_allowed: ['']       # Empty list means allow all detected objects.
     #objects_allowed: ['person', 'cup', 'bottle', 'cell phone', 'banana', 'book', 'scissors', 'dog', 'cat']  # Not case sensitive.
-
 
 # Perception adapter (BT topics relay) configuration
 perception_adapter:
