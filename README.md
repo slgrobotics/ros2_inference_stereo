@@ -136,6 +136,15 @@ To make a large checkerboard I printed several 3x2 boards and glued them to a ca
 
 Make sure that the sizes of your squares and camera base are reflected in [config.py](https://github.com/slgrobotics/ros2_inference_stereo/blob/main/config/config.py)
 
+**Note:** Camera *Field of View*
+- the 105°(D) FOV specification means: 
+  - Diagonal Measurement (D): The 105° angle is measured from one corner of the image to the opposite corner.
+  - Effective Area: you can expect approximately 85°–90° horizontally and 60°–65° vertically.
+- run `tests/print_sensor_modes.py` and look for `crop_limits: (0, 0, 3280, 2464)`
+- to use full FOV use `RAW_*=1640x1232`  (half of IMX219 full resolution - 3280x2464)
+- other modes may use only the central part of the sensor, and FOV will be narrower.
+- `SCALE_BY = 2` ensures that processing pipelines operate on 820x616 resolution, sufficient for all needs and fast enough.
+
 Calibration board generator:
 - https://markhedleyjones.com/projects/calibration-checkerboard-collection
 - https://markhedleyjones.com/media/projects/calibration-checkerboard-collection/Checkerboard-A4-30mm-8x6.pdf
