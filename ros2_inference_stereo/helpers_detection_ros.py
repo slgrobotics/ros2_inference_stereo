@@ -2,7 +2,7 @@
 Helpers for converting model detections into ROS2 Detection2DArray messages.
 """
 
-from typing import Iterable, Optional, Set, List
+from typing import Iterable, Optional, Set
 
 from std_msgs.msg import Header
 from vision_msgs.msg import (

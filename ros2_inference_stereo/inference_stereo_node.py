@@ -42,15 +42,16 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 
-from sensor_msgs.msg import Image, CompressedImage
+from sensor_msgs.msg import PointCloud2, Image, CompressedImage, CameraInfo
 from vision_msgs.msg import Detection2DArray
-from sensor_msgs.msg import PointCloud2
 
-from config.config import Camera
+from config.config import Camera  # Important: review and adjust camera settings in config/config.py to match your hardware and calibration.
+
 from ros2_inference_stereo.helpers_inference import ObjectDetector
 from ros2_inference_stereo.helpers_detection_ros import DetectionRosHelper
 from ros2_inference_stereo.helper_picamera import CameraDriver
 from ros2_inference_stereo.helpers_pointcloud import PointCloudHelper
+from ros2_inference_stereo.helpers_camera_info import CameraInfoHelper
 from ros2_inference_stereo.helpers_disparity import (
     make_valid_disparity_mask,
     derive_sgbm_params,
@@ -69,6 +70,7 @@ class InferenceStereoNode(Node):
         self.declare_parameter("model_path", "models/yolo11n.pt")
         self.declare_parameter("cloud_topic", "stereo/sparse_cloud")
         self.declare_parameter("image_topic", "camera/image_raw")  # or "camera/image_raw/compressed"
+        self.declare_parameter("camera_info_topic", "camera/camera_info")
         self.declare_parameter("jpeg_quality", 80)            # JPEG quality for compressed image output (1-100, higher is better quality and larger size)
         self.declare_parameter("detection_topic", "image_inference_detections")
         self.declare_parameter("frame_id", "stereo_camera")
@@ -92,6 +94,7 @@ class InferenceStereoNode(Node):
         cloud_topic = str(self.get_parameter("cloud_topic").value)
         self.image_topic = str(self.get_parameter("image_topic").value)
         self.jpeg_quality = int(self.get_parameter("jpeg_quality").value)
+        camera_info_topic = str(self.get_parameter("camera_info_topic").value)
         detection_topic = str(self.get_parameter("detection_topic").value)
         self.frame_id = str(self.get_parameter("frame_id").value)
         self.grid_size = int(self.get_parameter("grid_size").value)
@@ -151,6 +154,9 @@ class InferenceStereoNode(Node):
                 f"Loading stereo calibration file: '{self.calibration_file}'"
             )
             calib = np.load(self.calibration_file)
+
+            self.camera_info_helper = CameraInfoHelper(calib)
+
         except FileNotFoundError:
             raise RuntimeError(f"Calibration file '{self.calibration_file}' not found")
 
@@ -215,6 +221,12 @@ class InferenceStereoNode(Node):
             depth=1,
         )
 
+        camera_info_qos = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+        )
+
         cloud_qos = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
             history=HistoryPolicy.KEEP_LAST,
@@ -235,12 +247,14 @@ class InferenceStereoNode(Node):
 
         self.image_pub = self.create_publisher(image_msg_type, self.image_topic, image_qos)
 
+        self.camera_info_pub = self.create_publisher(CameraInfo, camera_info_topic, camera_info_qos)
+
         self.pub_cloud = self.create_publisher(PointCloud2, cloud_topic, cloud_qos)
 
         self.detection_pub = self.create_publisher(Detection2DArray, detection_topic, detection_qos)
 
         self.last_time = time.time()
-        self.packet_counter = 0
+        self.pointcloud_packet_counter = 0
         self.fps_filtered = 0.0
 
         # Both groups are mutually exclusive, not reentrant, so the same callback never overlaps with itself.
@@ -305,26 +319,26 @@ class InferenceStereoNode(Node):
                 return
 
             if self._use_compressed:
-                msg = CompressedImage()
-                msg.format = "jpeg"
+                image_msg = CompressedImage()
+                image_msg.format = "jpeg"
                 ok, enc = cv2.imencode(".jpg", latest_image, self._jpeg_encode_param)
                 if not ok:
                     self.get_logger().warning("Failed to JPEG-encode image")
                     return
-                msg.data = enc.tobytes()                
+                image_msg.data = enc.tobytes()                
             else:
-                msg = self.br.cv2_to_imgmsg(latest_image, encoding="bgr8")
+                image_msg = self.br.cv2_to_imgmsg(latest_image, encoding="bgr8")
 
             # that's when the image was captured:
-            msg.header.stamp = img_time_ros
-            msg.header.frame_id = self.frame_id
+            image_msg.header.stamp = img_time_ros
+            image_msg.header.frame_id = self.frame_id
 
-            self.image_pub.publish(msg)
+            self.image_pub.publish(image_msg)
 
             if self.verbose:
                 mode = "compressed" if self._use_compressed else "raw"
                 self.get_logger().info(
-                    f"Published {mode} image: seq={self.packet_counter}, "
+                    f"Published {mode} image: seq={self.pointcloud_packet_counter}, "
                     f"shape={latest_image.shape[1]}x{latest_image.shape[0]}"
                 )
 
@@ -346,10 +360,24 @@ class InferenceStereoNode(Node):
             # we want both messages synchronized (have same header stamp) to allow small "time_slop" in detection_visualizer
             det_msg = self.detection_ros_helper.build_detection_array_msg(
                 detections=detections,
-                header=msg.header
+                header=image_msg.header
             )
 
             self.detection_pub.publish(det_msg)
+
+            # we don't need to publish CameraInfo for every image, but we want to publish it at least once in a while 
+            # to allow RViz2 and other ROS2 consumers to get the camera parameters
+            # CameraInfo must have the same header stamp as the image for RViz2 to associate them together,
+            # so we publish it here with the same timestamp as the image
+            if self.pointcloud_packet_counter % 10 == 0:
+                img_h, img_w = latest_image.shape[:2]
+                cam_info = self.camera_info_helper.build_scaled_camera_info(
+                    img_w,
+                    img_h,
+                    image_msg.header.frame_id,
+                    image_msg.header.stamp,
+                )
+                self.camera_info_pub.publish(cam_info)
 
         finally:
             #self.detections_timer.timer_period_ns = int(self.detect_delay_sec * 1e9)
@@ -383,7 +411,7 @@ class InferenceStereoNode(Node):
             # we store raw left frame here for visualization and inference
             # this is not tightly related to PointCloud
             self.pointcloud_helper.update_latest_image(left, time_ros)
-            #self.pointcloud_helper.update_latest_image(left_rect, time_ros)  # optional - align image with PointCloud2
+            #self.pointcloud_helper.update_latest_image(left_rect, time_ros)  # optional - align "detections" image with PointCloud2
 
             left_gray = cv2.cvtColor(left_rect, cv2.COLOR_BGR2GRAY)
             right_gray = cv2.cvtColor(right_rect, cv2.COLOR_BGR2GRAY)
@@ -427,10 +455,10 @@ class InferenceStereoNode(Node):
             t1 = time.perf_counter()
             dt_ms = (t1 - t0) * 1000.0
 
-            self.packet_counter += 1
-            if self.log_every_n_packets > 0 and (self.packet_counter % self.log_every_n_packets == 0):
+            self.pointcloud_packet_counter += 1
+            if self.log_every_n_packets > 0 and (self.pointcloud_packet_counter % self.log_every_n_packets == 0):
                 self.get_logger().info(
-                    f"seq={self.packet_counter}  time: {dt_ms:.2f} ms  grid={self.grid_rows}x{self.grid_cols}  num_points={len(points)}  fps={self.fps_filtered:.2f}"
+                    f"seq={self.pointcloud_packet_counter}  time: {dt_ms:.2f} ms  grid={self.grid_rows}x{self.grid_cols}  num_points={len(points)}  fps={self.fps_filtered:.2f}"
                 )
 
             if latest_msg is not None:
