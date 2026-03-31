@@ -70,7 +70,7 @@ class InferenceStereoNode(Node):
         self.declare_parameter("model_path", "models/yolo11n.pt")
         self.declare_parameter("cloud_topic", "stereo/sparse_cloud")
         self.declare_parameter("image_topic", "camera/image_raw")  # or "camera/image_raw/compressed"
-        self.declare_parameter("camera_info_topic", "camera/camera_info")
+        self.declare_parameter("camera_info_topic", "camera/camera_info")  # must be consistent with vis.launch and RViz2 config if you use RViz2 for visualization
         self.declare_parameter("jpeg_quality", 80)            # JPEG quality for compressed image output (1-100, higher is better quality and larger size)
         self.declare_parameter("detection_topic", "image_inference_detections")
         self.declare_parameter("frame_id", "stereo_camera")

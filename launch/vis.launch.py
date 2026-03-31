@@ -85,7 +85,7 @@ def generate_launch_description():
         remappings=[
             ('~/images', '/camera/image_raw'),
             ('~/detections', '/image_inference_detections'),
-            ('~/dbg_images', '/image_inference_overlay'),
+            ('~/dbg_images', '/camera/image_inference_overlay'),
         ]
     )
 
@@ -99,7 +99,7 @@ def generate_launch_description():
             "verbose": False,        # If true - print debug info
             'image_topic': 'camera/image_raw/compressed',  # or "camera/image_raw", make sure it matches what inference_stereo_node publishes
             'detection_topic': 'image_inference_detections',
-            'overlay_image_topic': 'image_inference_overlay',
+            'overlay_image_topic': 'camera/image_inference_overlay',
             'time_slop': 0.01,       # "self.time_slop" defines tolerance to header timestamps
         }]
         # parameters=[params_file]  # Load params from YAML instead

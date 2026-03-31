@@ -46,3 +46,10 @@ perception_adapter:
     # Optional JSON string mapping gestures/commands to speech output. If not set, the gesture name will be used:
     speech_map_json: '{"STOP":"Stop immediately!","OK":"good stuff!","scissors":"Careful, sharp!","FIRE_HYDRANT":"Fire hydrant - do not park!"}'
 
+detection_visualizer:
+  ros__parameters:
+    verbose: False        # If true - print debug info
+    image_topic: 'camera/image_raw/compressed'  # or "camera/image_raw", make sure it matches what inference_stereo_node publishes
+    detection_topic: 'image_inference_detections'
+    overlay_image_topic: 'camera/image_inference_overlay'  # topic to publish overlay visualization (bounding boxes etc.) for RViz2 preview
+    time_slop: 0.01       # "self.time_slop" defines tolerance to header timestamps when synchronizing images and detections
