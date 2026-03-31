@@ -37,6 +37,7 @@ def generate_launch_description():
             'model_path': 'models/yolo11n.pt',  # relative to where you launch, e.g. "~/robot_ws/models/yolo11n.pt"
             'image_topic': "camera/image_raw/compressed",  # or "camera/image_raw", if WiFi traffic is not a concern.
             'jpeg_quality': 80,            # JPEG quality for compressed image output (1-100, higher is better quality and larger size)
+            'camera_info_topic': "camera/camera_info",
             'cloud_topic': "stereo/sparse_cloud",
             'detection_topic': 'image_inference_detections',
             'frame_id': "stereo_camera",
