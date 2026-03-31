@@ -369,7 +369,7 @@ class InferenceStereoNode(Node):
             # to allow RViz2 and other ROS2 consumers to get the camera parameters
             # CameraInfo must have the same header stamp as the image for RViz2 to associate them together,
             # so we publish it here with the same timestamp as the image
-            if self.pointcloud_packet_counter % 10 == 0:
+            if self.pointcloud_packet_counter < 10 or self.pointcloud_packet_counter % 10 == 0:
                 img_h, img_w = latest_image.shape[:2]
                 cam_info = self.camera_info_helper.build_scaled_camera_info(
                     img_w,
