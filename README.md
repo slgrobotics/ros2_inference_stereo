@@ -301,6 +301,7 @@ Capture + Rectification
 | Topic                                | Type                           | Description                     |
 | ------------------------------------ | ------------------------------ | ------------------------------- |
 | `/camera/image_raw`                  | `sensor_msgs/Image`            | Raw camera image                |
+| `/camera/camera_info`                | `sensor_msgs/CameraInfo`       | Camera calibration, FOV etc.    |
 | `/image_inference_detections`        | `vision_msgs/Detection2DArray` | YOLO detections                 |
 | `/camera/image_inference_overlay`    | `sensor_msgs/Image`            | Debug image with bounding boxes |
 | `/points`                            | `sensor_msgs/PointCloud2`      | Sparse stereo point cloud       |
