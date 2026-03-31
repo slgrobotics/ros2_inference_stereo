@@ -152,6 +152,30 @@ Calibration board generator:
 
 Here is how to use the checkerboard during calibration: https://youtu.be/G-Iw35VecI8
 
+## Image transport: Raw vs Compressed
+
+Both `inference_stereo_node.py` and `detection_visualizer_node.py` have a parameter that controls type of image transport:
+```
+'image_topic': "camera/image_raw/compressed",  # or "camera/image_raw", if WiFi traffic is not a concern.
+```
+The *"/compressed"* part turns on JPEG compression - RPi5 CPU will take a small hit, while WiFi traffic will be significuntly lower:
+```
+nload wlan0
+Avg: 14.4 MBit/s   - Raw
+Avg: 635  KBit/s   - Compressed
+```
+
+The setting should be the same on both sides.
+
+The `/image_inference_overlay` topic is always published uncompressed, as RViz2 and RQT don't seem to understand compressed traffic.
+
+You can still view the compressed raw images published by RPi3 on the workstation:
+```
+ros2 run image_view image_view --ros-args \
+  -r image:=/camera/image_raw \
+  -p image_transport:=compressed
+```
+
 ## Quick Start - ROS node on RPi5 and RViz on the workstation
 
 ### (on Raspberry Pi) Install prerequisites
@@ -218,6 +242,16 @@ Try running the _bootup_launch.sh_ from the command line to see if anything fail
 sudo cp ~/robot_ws/src/ros2_inference_stereo/sys/robot.service /etc/systemd/system/.
 ```
 
+> **Note:** 
+> Logs are stored in _/home/ros/.ros/log_ folder - these can grow if things go wrong.
+> 
+> You may want to edit parameters related to logging:
+> ```
+> # vi ~/robot_ws/src/ros2_inference_stereo/launch/inference_stereo.launch.py
+> 'verbose': False,          # If true - print debug info.
+> 'log_every_n_packets': 0,  # 0 for no log
+> ```
+
 3. Enable service:
 ```
 sudo systemctl daemon-reload
@@ -225,9 +259,6 @@ sudo systemctl enable robot.service
 sudo systemctl start robot.service
 ```
 If all went well, the service will start automatically after you reboot the RPi, and all related nodes will show up on _rpt_ and _rpt_graph_
-
-**Note:** 
-1. Logs are stored in _/home/ros/.ros/log_ folder - these can grow if things go wrong.
 
 ## System Architecture
 
