@@ -114,7 +114,7 @@ Here is my DIY setup:
 * For best results, ensure proper stereo calibration and consistent camera synchronization.
 
 ---
-## *Important:* Calibration is not optional
+## *Important:* Calibration Is Not Optional
 
 Stereo vision relies on properly calibrated cameras.
 
@@ -126,24 +126,24 @@ cd ~/robot_ws/src
 git clone https://github.com/slgrobotics/ros2_inference_stereo.git
 ```
 
-The *[calib](https://github.com/slgrobotics/ros2_inference_stereo/tree/main/calib)* folder contains necessary scripts:
-- `capture_stereo_pairs.py` allows you to collect a set of 50 *stereo pairs*, while positioning the checkerboard in every possible way
-- `calib_file_generator.py` generates a calibration file (calib_820x616.npz)
-- `disparity_viewer.py` lets you validate calibration before you go into ROS2
-- other files are useful for debugging etc.
+The *[calib](https://github.com/slgrobotics/ros2_inference_stereo/tree/main/calib)* folder contains the necessary scripts:
+- `capture_stereo_pairs.py` — collects a set of ~50 stereo pairs while you move the checkerboard through a wide range of positions and orientations
+- `calib_file_generator.py` — generates the calibration file (e.g., `calib_820x616.npz`)
+- `disparity_viewer.py` — allows you to validate the calibration before integrating with ROS2
+- other files — useful for debugging and experimentation
 
-To make a large checkerboard I printed several 3x2 boards and glued them to a cardboard.
+To create a large checkerboard, I printed several 3x2 boards and glued them onto cardboard.
 
-Make sure that the sizes of your squares and camera base are reflected in [config.py](https://github.com/slgrobotics/ros2_inference_stereo/blob/main/config/config.py)
+Make sure that the checkerboard square size and camera baseline are correctly configured in [config.py](https://github.com/slgrobotics/ros2_inference_stereo/blob/main/config/config.py)
 
 **Note:** Camera *Field of View*
 - the 105°(D) FOV specification means: 
-  - Diagonal Measurement (D): The 105° angle is measured from one corner of the image to the opposite corner.
-  - Effective Area: you can expect approximately 85°–90° horizontally and 60°–65° vertically.
+  - Diagonal measurement: the 105° angle is measured from one corner of the image to the opposite corner
+  - Effective area: approximately 85°–90° horizontally and 60°–65° vertically
 - run `tests/print_sensor_modes.py` and look for `crop_limits: (0, 0, 3280, 2464)`
-- to use full FOV use `RAW_*=1640x1232`  (half of IMX219 full resolution - 3280x2464)
-- other modes may use only the central part of the sensor, and FOV will be narrower.
-- `SCALE_BY = 2` ensures that processing pipelines operate on 820x616 resolution, sufficient for all needs and fast enough.
+- to use the full FOV set `RAW_*=1640x1232`  (half of the IMX219 full resolution: 3280x2464)
+- other sensor modes may use only the central portion of the sensor, resulting in a narrower FOV.
+- `SCALE_BY = 2` ensures that processing pipelines operate at 820x616 resolution, which is sufficient for most use cases and provides good performance.
 
 Calibration board generator:
 - https://markhedleyjones.com/projects/calibration-checkerboard-collection
@@ -154,29 +154,39 @@ Here is how to use the checkerboard during calibration: https://youtu.be/G-Iw35V
 
 ## Image transport: Raw vs Compressed
 
-Both `inference_stereo_node.py` and `detection_visualizer_node.py` have a parameter that controls type of image transport:
+Both `inference_stereo_node.py` and `detection_visualizer_node.py` provide a parameter that controls the type of image transport
 ```
 'image_topic': "camera/image_raw/compressed",  # or "camera/image_raw", if WiFi traffic is not a concern.
 ```
-The *"/compressed"* part turns on JPEG compression - RPi5 CPU will take a small hit, while WiFi traffic will be significuntly lower:
+
+The *"/compressed"* suffix enables JPEG compression - RPi5 CPU will take a small hit, while WiFi traffic will be significuntly lower:
 ```
 nload wlan0
 Avg: 14.4 MBit/s   - Raw
 Avg: 635  KBit/s   - Compressed
 ```
 
-The setting should be the same on both sides.
+This setting must be consistent on both sides - the publisher (RPi5) and subscriber (the workstation in this example).
 
-The `/camera/image_inference_overlay` topic is always published uncompressed, as RViz2 and RQT don't seem to understand compressed traffic.
+The `/camera/image_inference_overlay` topic is always published uncompressed, as RViz2 and RQT do not support compressed image topics.
 
-You can still view the compressed raw images published by RPi3 on the workstation:
+You can still view the compressed raw images published by the RPi5 on your workstation:
 ```
 ros2 run image_view image_view --ros-args \
   -r image:=/camera/image_raw \
   -p image_transport:=compressed
 ```
 
-## Quick Start - ROS node on RPi5 and RViz on the workstation
+## CameraInfo and Simulated LaserScan
+
+The *CameraInfo* message is derived from stereo calibration data and is published by RPi5 node:
+```
+'camera_info_topic': "camera/camera_info"
+```
+
+Any *PointCloud2* message can be "sliced" into a *LaserScan* - see `launch/vis.launch.py` for usage example.
+
+## Quick Start - ROS node on RPi5 and RViz2 on the workstation
 
 ### (on Raspberry Pi) Install prerequisites
 
