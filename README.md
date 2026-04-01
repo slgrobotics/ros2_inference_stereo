@@ -215,6 +215,8 @@ colcon build; source install/setup.bash; ros2 launch ros2_inference_stereo infer
 ### (On the workstation) Run Detection Visualizer and RViz2
 
 ```bash
+sudo apt install ros-${ROS_DISTRO}-pointcloud-to-laserscan
+
 mkdir -p ~/inf_stereo_ws/src
 cd ~/inf_stereo_ws/src
 git clone https://github.com/slgrobotics/ros2_inference_stereo.git
