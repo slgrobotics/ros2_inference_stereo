@@ -105,9 +105,50 @@ def generate_launch_description():
         # parameters=[params_file]  # Load params from YAML instead
     )
 
+    # sudo apt install ros-${ROS_DISTRO}-pointcloud-to-laserscan
+    # In case you want to convert the PointCloud2 output to a 2D laser scan for easier visualization
+    #  in RViz2 or for use with navigation stacks, you can add the following node:
+    pointcloud_to_laserscan_node = Node(
+        package='pointcloud_to_laserscan',
+        executable='pointcloud_to_laserscan_node',
+        name='pointcloud_to_laserscan',
+        remappings=[
+            # (target_topic, source_topic)
+            ('cloud_in', 'stereo/sparse_cloud'),
+            ('scan', 'scan'),
+        ],
+        parameters=[{
+            # --- Slicing Parameters ---
+            'min_height': -0.1,         # relative to the sensor frame, in meters
+            'max_height': 0.1,
+            
+            # --- Scan Range & Resolution ---
+            'angle_min': -3.1415,       # Start angle (radians)
+            'angle_max': 3.1415,        # End angle (radians)
+            'angle_increment': 0.0087,  # Resolution (radians per ray); 0.0087 rad ~ 0.5 degree
+            'range_min': 0.1,           # Minimum valid distance (meters)
+            'range_max': 10.0,          # Maximum valid distance (meters)
+            
+            # --- Time & Queue ---
+            'scan_time': 0.1,         # Time between scans (seconds)
+            'queue_size': 5,           # Input cloud queue size
+            
+            # --- Transformation ---
+            # 'target_frame': 'base_link', # Frame to transform into (leave empty to use cloud's frame)
+            'transform_tolerance': 0.01,
+            
+            # --- Advanced Out-of-Range Behavior ---
+            'use_inf': True,            # Use infinity for out-of-range vs max_range + epsilon
+            'inf_epsilon': 1.0,         # Value added to max_range if use_inf is False
+            'use_header_stamp': True,   # Use the timestamp from the pointcloud header
+        }],
+        output='screen',
+    )
+
     return LaunchDescription([
         perception_adapter_node,
         my_detection_visualizer_node,
+        pointcloud_to_laserscan_node,
         tf_to_map,
         rviz,
     ])
