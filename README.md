@@ -39,7 +39,7 @@ All cores on RPi5 stay 80..90% busy, so there isn't much else the machine can do
 * **Hardware:**
   * Raspberry Pi 5 (8GB) - please review this [guide](https://github.com/slgrobotics/articubot_one/wiki/Properly-feeding-your-Raspberry-Pi-5).
   * Dual *Arducam 8MP IMX219 Camera [Module](https://www.amazon.com/dp/B09VSRH14M)* (CSI).
-* **OS:** Ubuntu 24.04 LTS (Noble Numbat). You need Desktop version for calibration.
+* **OS:** Ubuntu 24.04 LTS (Noble Numbat). The Desktop version is required for calibration. You can use this [guide](https://github.com/slgrobotics/robots_bringup/blob/main/Docs/Ubuntu-RPi/README.md) as a reference. 
 * **ROS Distro:** ROS 2 Jazzy Jalisco.
 * a 32 GB **SD card** is sufficient ("[high endurance](https://www.amazon.com/dp/B07P14QHB7)" type recommended).
 * Connect Ethernet cable, keyboard and monitor while installing and configuring. Ensure SSH access.
