@@ -272,6 +272,18 @@ sudo systemctl start robot.service
 ```
 If all went well, the service will start automatically after you reboot the RPi, and all related nodes will show up on _rpt_ and _rpt_graph_
 
+## Promptable Object recognition - YOLOE
+
+Ultralytics provides a way to run other models, including a very recent *"yoloe-11s-seg-pf.pt"*.
+
+**YOLOE** uses text prompts instead of fixed labels. So rather than being limited to, say, *“dog”* or *“car,”* you can tell YOLOE to look for a *“red mug”* or *“vintage camera”*, even if it hasn’t seen those exact things during training.
+
+Here is a video tutorial by *Core Electronics Pty Ltd* (Australia) explaining how it works: https://youtu.be/yNPwsKa52zs  (thanks, Michael Wimble, for the find!)
+
+Tutorial: https://core-electronics.com.au/guides/raspberry-pi/custom-object-detection-models-without-training-yoloe-and-raspberry-pi/
+
+**TODO:** <howto here> - is it just changing `'model_path': 'models/yolo11n.pt'` in `launch/inference_stereo.launch.py`?
+
 ## System Architecture
 
 This package is designed as a **modular perception pipeline** with clear separation between acquisition, processing, and ROS interfaces.
