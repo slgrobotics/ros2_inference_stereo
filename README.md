@@ -293,6 +293,7 @@ You can use an optimized model format to significantly improve object detection 
 First, install the prerequisites:
 ```
 pip install --break-system-packages onnx onnxruntime onnxslim
+pip install --user --break-system-packages git+https://github.com/ultralytics/CLIP.git
 ```
 
 If you have already used a `.pt` model, it will typically be located in either `~/robot_ws/models` or `~/launch/models`. Navigate to that directory and run:
@@ -303,8 +304,6 @@ yolo export model=yoloe-11s-seg-pf.pt format=onnx imgsz=640,832
 ```
 
 Be patient — there may be a short delay before Ultralytics starts printing progress to the terminal.
-See full [tutorial](https://core-electronics.com.au/guides/raspberry-pi/custom-object-detection-models-without-training-yoloe-and-raspberry-pi/)
-if you want to embed *text prompts* into the ONNX model. Their code is under `yoloe-code-core-electronics` directory for your convenience.
 
 You can then update your launch file to use the exported model:
 ```
@@ -312,6 +311,65 @@ You can then update your launch file to use the exported model:
 ```
 
 In practice, `yolo11n.onnx` runs about twice as fast as the `.pt` model, while `yoloe-11s-seg-pf.onnx` shows an improvement of roughly 1.4×.
+
+See full [tutorial](https://core-electronics.com.au/guides/raspberry-pi/custom-object-detection-models-without-training-yoloe-and-raspberry-pi/)
+if you want to embed *text prompts* into the ONNX model. Their code is under `yoloe-code-core-electronics` directory for your convenience.
+
+This is what worked for me (well, to some [extent](https://chatgpt.com/s/t_69ceb84a88f08191af1c14714b858d48)):
+```
+#!/usr/bin/env python3
+
+# run this script where your models are - ~/robot_ws/models or ~/launch/models
+
+from pathlib import Path
+from ultralytics import YOLOE
+
+MODEL_PATH = "yoloe-11s-seg.pt"
+CLASS_NAMES = [
+    "blue cup",
+    "silver cup",
+    "human hand",
+    "mobile phone",
+    "animal",
+    "tiger",
+    "squirrel",
+    #"a raccoon with a black mask face",
+    #"a small domestic cat",
+    #"a medium sized dog",
+]
+IMG_SIZE = (640, 832)  # (height, width), both divisible by 32
+
+
+def main() -> None:
+    model_path = Path(MODEL_PATH).expanduser()
+
+    if not model_path.exists():
+        raise FileNotFoundError(f"Model not found: {model_path}")
+
+    print(f"...loading model: {model_path}")
+
+    # Load model
+    model = YOLOE(str(model_path))
+
+    # Build and set prompt embeddings
+    text_pe = model.get_text_pe(CLASS_NAMES)
+    model.set_classes(CLASS_NAMES, text_pe)
+
+    # Export ONNX with fixed input size
+    model.export(
+        format="onnx",
+        imgsz=IMG_SIZE,
+    )
+
+    print(f"Export complete: {model_path.with_suffix('.onnx')}")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+<img width="1248" height="862" alt="Screenshot from 2026-04-02 13-33-38" src="https://github.com/user-attachments/assets/9279e257-e8d7-4f5f-8775-25e1867fa51a" />
+
 
 ## System Architecture
 
