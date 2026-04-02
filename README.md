@@ -372,7 +372,7 @@ if __name__ == "__main__":
     main()
 ```
 
-Here is how a squirrel should look like, in 'yoloe-11s-seg` model's expert opinion:
+Here is how a squirrel should look like, in `yoloe-11s-seg` model's expert opinion:
 
 <img width="1248" height="862" alt="Screenshot from 2026-04-02 13-33-38" src="https://github.com/user-attachments/assets/9279e257-e8d7-4f5f-8775-25e1867fa51a" />
 
