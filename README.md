@@ -126,7 +126,7 @@ cd ~/robot_ws/src
 git clone https://github.com/slgrobotics/ros2_inference_stereo.git
 ```
 
-The *[calib](https://github.com/slgrobotics/ros2_inference_stereo/tree/main/calib)* folder contains the necessary scripts:
+The *[calib](https://github.com/slgrobotics/ros2_inference_stereo/tree/main/calib)* directory contains the necessary scripts:
 - `capture_stereo_pairs.py` — collects a set of ~50 stereo pairs while you move the checkerboard through a wide range of positions and orientations
 - `calib_file_generator.py` — generates the calibration file (e.g., `calib_820x616.npz`)
 - `disparity_viewer.py` — allows you to validate the calibration before integrating with ROS2
@@ -239,7 +239,7 @@ colcon build; source install/setup.bash; ros2 launch ros2_inference_stereo vis.l
 
 To turn your RPi5 into a headless "camera appliance" follow these steps:
 
-1. Create and populate launch folder:
+1. Create and populate launch directory:
 ```
 mkdir ~/launch
 cd ~/launch
@@ -255,7 +255,7 @@ sudo cp ~/robot_ws/src/ros2_inference_stereo/sys/robot.service /etc/systemd/syst
 ```
 
 > **Note:** 
-> Logs are stored in _/home/ros/.ros/log_ folder - these can grow if things go wrong.
+> Logs are stored in _/home/ros/.ros/log_ directory - these files can grow if things go wrong.
 > 
 > You may want to edit parameters related to logging:
 > ```
@@ -274,12 +274,14 @@ If all went well, the service will start automatically after you reboot the RPi,
 
 ## Promptable Object recognition - YOLOE
 
-Ultralytics provides a way to run other models, including a very recent *"yoloe-11s-seg-pf.pt"*.
+Ultralytics provides a way to run other models, including a very recent *"yoloe-11s-seg-pf.pt"* (note the *"-pf"* suffix, *prompt-free* - skip it if you want to use text prompts).
 
 **YOLOE** uses text prompts instead of fixed labels. So rather than being limited to, say, *“dog”* or *“car,”* you can tell YOLOE to look for a *“red mug”* or *“vintage camera”*, even if it hasn’t seen those exact things during training.
 
 Here is a video tutorial by *Core Electronics Pty Ltd* (Australia) explaining how it works: https://youtu.be/yNPwsKa52zs  (thanks, Michael Wimble, for the find!)
 Their text tutorial is [here](https://core-electronics.com.au/guides/raspberry-pi/custom-object-detection-models-without-training-yoloe-and-raspberry-pi/).
+
+**Note:** the tutorial describes how to embed *"text prompts"* in the model during ONNX conversion. 
 
 The model can be easily deployed by just changing `'model_path': 'models/yoloe-11s-seg-pf.pt'` in `launch/inference_stereo.launch.py`
 Without optimization and AI Hat it is noticeably slower though (about 4 seconds per 820x616 frame).
@@ -301,6 +303,8 @@ yolo export model=yoloe-11s-seg-pf.pt format=onnx imgsz=640,832
 ```
 
 Be patient — there may be a short delay before Ultralytics starts printing progress to the terminal.
+See full [tutorial](https://core-electronics.com.au/guides/raspberry-pi/custom-object-detection-models-without-training-yoloe-and-raspberry-pi/)
+if you want to embed *text prompts* into the ONNX model. Their code is under `yoloe-code-core-electronics` directory for your convenience.
 
 You can then update your launch file to use the exported model:
 ```
