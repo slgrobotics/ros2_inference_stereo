@@ -47,16 +47,8 @@ from vision_msgs.msg import Detection2DArray
 
 from config.config import Camera  # Important: review and adjust camera settings in config/config.py to match your hardware and calibration.
 
-from ros2_inference_stereo.helpers_inference import ObjectDetector
-from ros2_inference_stereo.helpers_detection_ros import DetectionRosHelper
-from ros2_inference_stereo.helper_picamera import CameraDriver
-from ros2_inference_stereo.helpers_pointcloud import PointCloudHelper
-from ros2_inference_stereo.helpers_camera_info import CameraInfoHelper
-from ros2_inference_stereo.helpers_disparity import (
-    make_valid_disparity_mask,
-    derive_sgbm_params,
-    extract_sparse_points,
-)
+from ros2_inference_stereo.helpers import ObjectDetector, PointCloudHelper, CameraInfoHelper, DetectionRosHelper, CameraDriver
+from ros2_inference_stereo.helpers.disparity import (make_valid_disparity_mask, derive_sgbm_params, extract_sparse_points)
 
 class InferenceStereoNode(Node):
     def __init__(self) -> None:
