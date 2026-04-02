@@ -321,22 +321,32 @@ Stereo Cameras
     ▼
 Capture + Rectification
     │
-    ├──► Disparity (StereoSGBM)
-    │         │
-    │         ▼
-    │   Sparse Depth Grid
-    │         │
-    │         ▼
-    │   PointCloud2 Publisher
+    ├──► Disparity Thread (StereoSGBM) ──► Sparse Depth Grid
+    │                                           │
+    │                                           ▼
+    │                                     PointCloud2 Publisher
     │
-    └──► Object Detection (YOLO)
+    └──► Object Detection Thread (YOLO)
               │
               ▼
       Detection2DArray Publisher
               │
-              ▼
-      Detection Visualizer (optional)
+              ├──► Detection Visualizer (optional) ──► Overlay Image Publisher
+              │
+              └──► Perception Adapter
+                        │
+                        ▼
+                "Illuminance()" message (hack)
+                        │
+                        ▼
+              Custom BT Plugins / Conditions
+                        │
+                        ▼
+              Custom BT + Standard Nav2 BT / Actions
 ```
+
+For interfacing to Behavior Trees see this [guide](https://github.com/slgrobotics/articubot_one/wiki/Behavior-Tree-for-Gesture-and-Face-Detection-Sensor). 
+
 <img width="1810" height="355" alt="Screenshot from 2026-03-29 09-42-23" src="https://github.com/user-attachments/assets/a8c5680e-5a5d-4927-8cc5-ff64dc22edea" />
 
 ## Timing and Synchronization
