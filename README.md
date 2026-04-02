@@ -284,7 +284,30 @@ Their text tutorial is [here](https://core-electronics.com.au/guides/raspberry-p
 The model can be easily deployed by just changing `'model_path': 'models/yoloe-11s-seg-pf.pt'` in `launch/inference_stereo.launch.py`
 Without optimization and AI Hat it is noticeably slower though (about 4 seconds per 820x616 frame).
 
-**TODO:** <howto here>
+## Faster/optimized model format - ONNX
+
+You can use an optimized model format to significantly improve object detection performance.
+
+First, install the prerequisites:
+```
+pip install --break-system-packages onnx onnxruntime onnxslim
+```
+
+If you have already used a `.pt` model, it will typically be located in either `~/robot_ws/models` or `~/launch/models`. Navigate to that directory and run:
+```
+yolo export model=yolo11n.pt format=onnx imgsz=640,832
+  or
+yolo export model=yoloe-11s-seg-pf.pt format=onnx imgsz=640,832
+```
+
+Be patient — there may be a short delay before Ultralytics starts printing progress to the terminal.
+
+You can then update your launch file to use the exported model:
+```
+'model_path': 'models/yolo11n.onnx',
+```
+
+In practice, `yolo11n.onnx` runs about twice as fast as the `.pt` model, while `yoloe-11s-seg-pf.onnx` shows an improvement of roughly 1.4×.
 
 ## System Architecture
 
