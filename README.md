@@ -296,6 +296,8 @@ pip install --break-system-packages onnx onnxruntime onnxslim
 pip install --user --break-system-packages git+https://github.com/ultralytics/CLIP.git
 ```
 
+### Regular models
+
 If you have already used a `.pt` model, it will typically be located in either `~/robot_ws/models` or `~/launch/models`. Navigate to that directory and run:
 ```
 yolo export model=yolo11n.pt format=onnx imgsz=640,832
@@ -311,6 +313,8 @@ You can then update your launch file to use the exported model:
 ```
 
 In practice, `yolo11n.onnx` runs about twice as fast as the `.pt` model, while `yoloe-11s-seg-pf.onnx` shows an improvement of roughly 1.4×.
+
+### "Promptable" models
 
 See full [tutorial](https://core-electronics.com.au/guides/raspberry-pi/custom-object-detection-models-without-training-yoloe-and-raspberry-pi/)
 if you want to embed *text prompts* into the ONNX model. Their code is under `yoloe-code-core-electronics` directory for your convenience.
@@ -367,6 +371,8 @@ def main() -> None:
 if __name__ == "__main__":
     main()
 ```
+
+Here is how a squirrel should look like, in 'yoloe-11s-seg` model's expert opinion:
 
 <img width="1248" height="862" alt="Screenshot from 2026-04-02 13-33-38" src="https://github.com/user-attachments/assets/9279e257-e8d7-4f5f-8775-25e1867fa51a" />
 
