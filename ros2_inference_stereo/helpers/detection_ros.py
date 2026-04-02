@@ -15,7 +15,7 @@ from vision_msgs.msg import (
     ObjectHypothesisWithPose,
 )
 
-from ros2_inference_stereo.helpers_inference import DetectionResult
+from .inference import DetectionResult
 
 
 class DetectionRosHelper:
