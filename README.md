@@ -275,10 +275,12 @@ If all went well, the service will start automatically after you reboot the RPi,
 > **Tip:** You can now disable the GUI to save RAM and speed up boot:
 > ```
 > sudo systemctl set-default multi-user.target
+> sudo init 3
 > ```
 > Re-enable the GUI if needed:
 > ```
 > sudo systemctl set-default graphical.target
+> sudo init 5
 > ```
 
 ## Promptable Object recognition - YOLOE
