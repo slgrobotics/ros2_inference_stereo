@@ -272,6 +272,15 @@ sudo systemctl start robot.service
 ```
 If all went well, the service will start automatically after you reboot the RPi, and all related nodes will show up on _rpt_ and _rpt_graph_
 
+> **Tip:** You can now disable the GUI to save RAM and speed up boot:
+> ```
+> sudo systemctl set-default multi-user.target
+> ```
+> Re-enable the GUI if needed:
+> ```
+> sudo systemctl set-default graphical.target
+> ```
+
 ## Promptable Object recognition - YOLOE
 
 Ultralytics provides a way to run other models, including a very recent *"yoloe-11s-seg-pf.pt"* (note the *"-pf"* suffix, *prompt-free* - skip it if you want to use text prompts).
