@@ -1,4 +1,5 @@
 # /etc/systemd/system/robot.service
+# see https://github.com/slgrobotics/ros2_inference_stereo/blob/main/README.md#create-a-linux-service-for-on-boot-autostart
 [Unit]
 Description=ros2_inference_stereo
 StartLimitIntervalSec=60
