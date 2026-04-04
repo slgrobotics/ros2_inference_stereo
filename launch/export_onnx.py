@@ -21,6 +21,7 @@ from ultralytics import YOLOE
 
 MODEL_PATH = "yoloe-11s-seg.pt"
 CLASS_NAMES = [
+    "person",
     "blue cup",
     "orange cup",
     "white cup",
