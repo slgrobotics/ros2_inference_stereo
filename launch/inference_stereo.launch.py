@@ -37,9 +37,10 @@ def generate_launch_description():
 
             # ONNX: see this guide: https://github.com/slgrobotics/ros2_inference_stereo/blob/main/README.md#fasteroptimized-model-format---onnx
             'model_path': 'models/yolo11n.pt',  # relative to where you launch, e.g. "~/robot_ws/models/*" or "~/launch/models/*"
-            #'model_path': 'models/yolo11n.onnx',  # approx 2x faster than .pt but may have slightly lower accuracy
-            #'model_path': 'models/yoloe-11s-seg-pf.pt',
-            #'model_path': 'models/yoloe-11s-seg-pf.onnx',  # approx 1.4x faster than .pt
+            #'model_path': 'models/yolo11n.onnx',  # approx 2x faster than the .pt but may have slightly lower accuracy
+            #'model_path': 'models/yoloe-11s-seg-pf.pt',    # prompt-free version of yoloe-11s-seg
+            #'model_path': 'models/yoloe-11s-seg-pf.onnx',  # approx 1.4x faster than the .pt
+            #'model_path': 'models/yoloe-11s-seg.onnx',     # when exported by "launch/export_onnx.py" - with custom dictionary
 
             'image_topic': "camera/image_raw/compressed",  # or "camera/image_raw", if WiFi traffic is not a concern.
             'jpeg_quality': 80,            # JPEG quality for compressed image output (1-100, higher is better quality and larger size)
