@@ -375,7 +375,7 @@ Capture + Rectification
 
 For interfacing to Behavior Trees see this [guide](https://github.com/slgrobotics/articubot_one/wiki/Behavior-Tree-for-Gesture-and-Face-Detection-Sensor). 
 
-<img width="1866" height="459" alt="Screenshot from 2026-04-07 10-35-56" src="https://github.com/user-attachments/assets/4138e54f-74ba-4ec9-8714-c32111df56d8" />
+<img width="1825" height="393" alt="Screenshot from 2026-04-07 11-18-06" src="https://github.com/user-attachments/assets/ee9afc40-b469-4c92-b466-57d8bd812c6d" />
 
 ### Timing and Synchronization
 
