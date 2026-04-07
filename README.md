@@ -375,33 +375,61 @@ Capture + Rectification
 
 For interfacing to Behavior Trees see this [guide](https://github.com/slgrobotics/articubot_one/wiki/Behavior-Tree-for-Gesture-and-Face-Detection-Sensor). 
 
-<img width="1810" height="355" alt="Screenshot from 2026-03-29 09-42-23" src="https://github.com/user-attachments/assets/a8c5680e-5a5d-4927-8cc5-ff64dc22edea" />
+<img width="1866" height="459" alt="Screenshot from 2026-04-07 10-35-56" src="https://github.com/user-attachments/assets/4138e54f-74ba-4ec9-8714-c32111df56d8" />
 
-## Timing and Synchronization
+### Timing and Synchronization
 
 * All outputs (image, detections, point cloud) share the **same source image timestamp**
 * Detection latency does **not affect synchronization**, since timestamps are preserved
 * `ApproximateTimeSynchronizer` is used only for visualization alignment
 
-## Topics
+### Topics piblished by */inference_stereo_node*
 
-| Topic                                | Type                           | Description                     |
-| ------------------------------------ | ------------------------------ | ------------------------------- |
-| `/camera/image_raw`                  | `sensor_msgs/Image`            | Raw camera image                |
-| `/camera/camera_info`                | `sensor_msgs/CameraInfo`       | Camera calibration, FOV etc.    |
-| `/image_inference_detections`        | `vision_msgs/Detection2DArray` | YOLO detections                 |
-| `/camera/image_inference_overlay`    | `sensor_msgs/Image`            | Debug image with bounding boxes |
-| `/points`                            | `sensor_msgs/PointCloud2`      | Sparse stereo point cloud       |
+| Topic                          | Type                               | Description                     |
+| -------------------------------| ---------------------------------- | ------------------------------- |
+| `/camera/image_raw`            | `sensor_msgs/msg/Image`            | Raw camera image                |
+| `/camera/image_raw/compressed` | `sensor_msgs/msg/CompressedImage`  | Compressed camera image (JPEG)  |
+| `/camera/camera_info`          | `sensor_msgs/msg/CameraInfo`       | Camera calibration, FOV etc.    |
+| `/image_inference_detections`  | `vision_msgs/msg/Detection2DArray` | YOLO detections                 |
+| `/stereo/sparse_cloud`         | `sensor_msgs/msg/PointCloud2`      | Sparse stereo point cloud       |
 
-## Key Parameters
+### Topics piblished by other nodes in the demo
 
-| Parameter                | Description                         |
-| ------------------------ | ----------------------------------- |
-| `min_confidence`         | Detection confidence threshold      |
-| `objects_allowed`        | Optional whitelist of object labels |
-| `grid_rows`, `grid_cols` | Resolution of depth sampling grid   |
-| `time_slop`              | Sync tolerance for visualization    |
-| `use_mean_color`         | Use average color per grid cell     |
+| Topic                             | Type                            | Published by                    |
+| --------------------------------- | ------------------------------- | ------------------------------- |
+| `/camera/image_inference_overlay` | `sensor_msgs/msg/Image`         | `/detection_visualizer`         |
+| `/scan`                           | `sensor_msgs/msg/LaserScan`     | `/pointcloud_to_laserscan`      |
+| `/fgs/face_detected`              | `std_msgs/msg/Bool`             | `/perception_adapter`           |
+| `/fgs/face_yaw_error`             | `std_msgs/msg/Float32`          | `/perception_adapter`           |
+| `/fgs/gesture_command`            | `std_msgs/msg/String`           | `/perception_adapter`           |
+| `/bt/face_gesture_detect`         | `sensor_msgs/msg/Illuminance`   | `/perception_adapter`           |
+
+### Key Parameters
+
+| Parameter                | Description                                                                |
+|--------------------------|----------------------------------------------------------------------------|
+| `min_confidence`         | Minimum confidence threshold for object detection                          |
+| `objects_allowed`        | Optional whitelist of allowed object labels; if empty, all labels are used |
+| `model_path`             | Path to the detection model file (`.pt` or `.onnx`)                        |
+| `calibration_file`       | Path to the stereo calibration file                                        |
+| `image_topic`            | Image output topic; `/compressed` enables JPEG transport                   |
+| `camera_info_topic`      | Topic for publishing `CameraInfo`                                          |
+| `jpeg_quality`           | JPEG quality for compressed images (`1–100`)                               |
+| `cloud_topic`            | Output topic for sparse `PointCloud2`                                      |
+| `detection_topic`        | Output topic for `Detection2DArray`                                        |
+| `frame_id`               | Frame ID for all published messages                                        |
+| `grid_size`              | Grid size `N×N` for sparse depth sampling                                  |
+| `close_cutout_factor`    | Biases disparity processing toward nearer objects                          |
+| `far_smoothing_factor`   | Controls smoothing for distant regions                                     |
+| `color_patch_fraction`   | Size of central patch used for color sampling                              |
+| `use_mean_color`         | Use average color per cell (otherwise use a single pixel)                  |
+| `max_pointcloud_range_m` | Maximum range (meters) for point cloud points                              |
+| `min_valid_disp`         | Minimum valid disparity value                                              |
+| `min_disp_confidence`    | Minimum disparity confidence to publish a point                            |
+| `pointcloud_delay_sec`   | Delay between point cloud processing cycles                                |
+| `detect_delay_sec`       | Delay between detection processing cycles                                  |
+| `log_every_n_packets`    | Log every N packets (`0` disables logging)                                 |
+| `verbose`                | Enable verbose/debug logging                                               |
 
 ## Behavior trees connection - Perception Adapter
 
