@@ -42,7 +42,7 @@ All cores on RPi5 stay 80..90% busy, so there isn't much else the machine can do
 * **OS:** Ubuntu 24.04 LTS (Noble Numbat). The Desktop version is required for calibration. You can use this [guide](https://github.com/slgrobotics/robots_bringup/blob/main/Docs/Ubuntu-RPi/README.md) as a reference. 
 * **ROS Distro:** ROS 2 Jazzy Jalisco.
 * a 32 GB **SD card** is sufficient ("[high endurance](https://www.amazon.com/dp/B07P14QHB7)" type recommended).
-* Connect Ethernet cable, keyboard and monitor while installing and configuring. Ensure SSH access.
+* Connect Ethernet cable, keyboard and monitor while installing and configuring. Ensure SSH access (`sudo apt install ssh`).
 
 > **Important:**
 > * Standard Ubuntu drivers do not support the CSI-connected cameras correctly out of the box. You MUST either:
@@ -204,11 +204,22 @@ Use these [scripts](https://github.com/slgrobotics/ros2_inference_stereo/tree/ma
 
 **Important:** [calibrate](https://github.com/slgrobotics/ros2_inference_stereo?tab=readme-ov-file#important-calibration-is-not-optional) your cameras.
 
-You need a ROS package and YOLO driver from Ultralytics (takes time to install):
+Make sure you have proper group membersips:
 ```
-sudo apt install ros-${ROS_DISTRO}-vision-msgs
-python3 -m pip install ultralytics "numpy<2" --break-system-packages
+sudo adduser ros video
+```
 
+You need *colcon*, *git*, ROS packages and YOLO driver from Ultralytics (takes time to install):
+```
+sudo apt install colcon git
+sudo apt install ros-${ROS_DISTRO}-vision-msgs ros-${ROS_DISTRO}-cv-bridge
+python3 -m pip install ultralytics "numpy<2" --break-system-packages
+```
+
+To be able to export models in ONNX format, install:
+```
+pip install --break-system-packages onnx onnxruntime onnxslim
+pip install --user --break-system-packages git+https://github.com/ultralytics/CLIP.git
 ```
 
 ### (On Raspberry Pi) Build and run
@@ -272,15 +283,20 @@ sudo systemctl start robot.service
 ```
 If all went well, the service will start automatically after you reboot the RPi, and all related nodes will show up on _rpt_ and _rpt_graph_
 
-> **Tip:** You can now disable the GUI to save RAM and speed up boot:
+> **Tips:**
+> - You can now disable the GUI to save RAM and speed up boot:
 > ```
 > sudo systemctl set-default multi-user.target
 > sudo init 3
 > ```
-> Re-enable the GUI if needed:
+> - Re-enable the GUI if needed:
 > ```
 > sudo systemctl set-default graphical.target
 > sudo init 5
+> ```
+> - It may be a good idea to disable unattended system upgrades:
+> ```
+> sudo dpkg-reconfigure unattended-upgrades      (say No)
 > ```
 
 ## Promptable Object recognition - YOLOE
@@ -300,12 +316,6 @@ Without optimization and AI Hat it is noticeably slower though (about 4 seconds 
 ## Faster/optimized model format - ONNX
 
 You can use an optimized model format to significantly improve object detection performance.
-
-First, install the prerequisites:
-```
-pip install --break-system-packages onnx onnxruntime onnxslim
-pip install --user --break-system-packages git+https://github.com/ultralytics/CLIP.git
-```
 
 ### Regular models
 
