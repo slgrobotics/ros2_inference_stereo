@@ -118,14 +118,6 @@ Here is my DIY setup:
 
 Stereo vision relies on properly calibrated cameras.
 
-On the Raspberry Pi 5:
-
-```bash
-mkdir -p ~/robot_ws/src
-cd ~/robot_ws/src
-git clone https://github.com/slgrobotics/ros2_inference_stereo.git
-```
-
 The *[calib](https://github.com/slgrobotics/ros2_inference_stereo/tree/main/calib)* directory contains the necessary scripts:
 - `capture_stereo_pairs.py` — collects a set of ~50 stereo pairs while you move the checkerboard through a wide range of positions and orientations
 - `calib_file_generator.py` — generates the calibration file (e.g., `calib_820x616.npz`)
@@ -200,10 +192,6 @@ dtoverlay=imx219,cam1
 
 Follow this [guide](https://github.com/slgrobotics/robots_bringup/blob/main/Docs/Sensors/Camera.md#installation) to install *libcamera/picamera2* binaries.
 
-Use these [scripts](https://github.com/slgrobotics/ros2_inference_stereo/tree/main/tests) to verify that the cameras are working.
-
-**Important:** [calibrate](https://github.com/slgrobotics/ros2_inference_stereo?tab=readme-ov-file#important-calibration-is-not-optional) your cameras.
-
 Make sure you have proper group membersips:
 ```
 sudo adduser ros video
@@ -222,7 +210,11 @@ pip install --break-system-packages onnx onnxruntime onnxslim
 pip install --user --break-system-packages git+https://github.com/ultralytics/CLIP.git
 ```
 
-### (On Raspberry Pi) Build and run
+Use these [scripts](https://github.com/slgrobotics/ros2_inference_stereo/tree/main/tests) to verify that the cameras are working.
+
+**Important:** [calibrate](https://github.com/slgrobotics/ros2_inference_stereo?tab=readme-ov-file#important-calibration-is-not-optional) your cameras.
+
+### (*On Raspberry Pi*) Build and run
 
 ```bash
 mkdir -p ~/robot_ws/src
@@ -233,7 +225,7 @@ cd ~/robot_ws
 colcon build; source install/setup.bash; ros2 launch ros2_inference_stereo inference_stereo.launch.py
 ```
 
-### (On the workstation) Run Detection Visualizer and RViz2
+### (*On the workstation*) Run Detection Visualizer and RViz2
 
 ```bash
 sudo apt install ros-${ROS_DISTRO}-pointcloud-to-laserscan
