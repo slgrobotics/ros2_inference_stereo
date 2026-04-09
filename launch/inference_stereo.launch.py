@@ -40,6 +40,7 @@ def generate_launch_description():
             #'model_path': 'models/yolo11n.onnx',  # approx 2x faster than the .pt but may have slightly lower accuracy
             #'model_path': 'models/yoloe-11s-seg-pf.pt',    # prompt-free version of yoloe-11s-seg
             #'model_path': 'models/yoloe-11s-seg-pf.onnx',  # approx 1.4x faster than the .pt
+            #'model_path': 'models/yoloe-11s-seg.pt',       # run this first to bring it into "models" directory, then run "launch/export_onnx.py"
             #'model_path': 'models/yoloe-11s-seg.onnx',     # when exported by "launch/export_onnx.py" - with custom dictionary
 
             'image_topic': "camera/image_raw/compressed",  # or "camera/image_raw", if WiFi traffic is not a concern.
