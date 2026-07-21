@@ -46,9 +46,9 @@ def generate_launch_description():
             'image_topic': "camera/image_raw/compressed",  # or "camera/image_raw", if WiFi traffic is not a concern.
             'jpeg_quality': 80,            # JPEG quality for compressed image output (1-100, higher is better quality and larger size)
             'camera_info_topic': "camera/camera_info",
-            'depth_image_topic': "stereo/depth/image_rect_raw",
-            'cloud_topic': "stereo/sparse_cloud",
-            'detection_topic': 'image_inference_detections',
+            'depth_image_topic': "stereo/depth/image_rect_raw",  # Empty string disables depth image publishing
+            'cloud_topic': "stereo/sparse_cloud",                # Empty string disables sparse pointcloud publishing
+            'detection_topic': 'image_inference_detections',     # Empty string disables detections publishing
             'frame_id': "stereo_camera",
             'grid_size': 16,  # Grid size NxN for sparse sampling
             'close_cutout_factor': 1.0,

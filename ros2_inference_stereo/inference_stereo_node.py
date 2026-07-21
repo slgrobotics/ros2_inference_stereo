@@ -60,12 +60,12 @@ class InferenceStereoNode(Node):
         self.declare_parameter("log_every_n_packets", 10)     # 0 for no log
         self.declare_parameter("calibration_file", "config/calib_820x616.npz")
         self.declare_parameter("model_path", "models/yolo11n.pt")
-        self.declare_parameter("cloud_topic", "stereo/sparse_cloud")
+        self.declare_parameter("cloud_topic", "stereo/sparse_cloud")  # Empty string disables sparse pointcloud publishing
         self.declare_parameter("image_topic", "camera/image_raw")  # or "camera/image_raw/compressed"
         self.declare_parameter("camera_info_topic", "camera/camera_info")  # must be consistent with vis.launch and RViz2 config if you use RViz2 for visualization
-        self.declare_parameter("depth_image_topic", "stereo/depth/image_rect_raw")
+        self.declare_parameter("depth_image_topic", "stereo/depth/image_rect_raw")  # Empty string disables depth image publishing
         self.declare_parameter("jpeg_quality", 80)            # JPEG quality for compressed image output (1-100, higher is better quality and larger size)
-        self.declare_parameter("detection_topic", "image_inference_detections")
+        self.declare_parameter("detection_topic", "image_inference_detections")  # Empty string disables detections publishing
         self.declare_parameter("frame_id", "stereo_camera")
         self.declare_parameter("grid_size", 16)               # Grid size NxN for sparse sampling
         self.declare_parameter("close_cutout_factor", 1.0)
@@ -104,46 +104,47 @@ class InferenceStereoNode(Node):
         self.min_confidence = float(self.get_parameter("min_confidence").value)
 
         # we always publish 'image_topic' and 'camera_info_topic', but depth_image_topic, cloud_topic, and detection_topic are optional:
-        self.publish_depth_image = bool(depth_image_topic)
+        self.publish_depth_image = bool(depth_image_topic)  # False if empty string
         self.publish_pointcloud = bool(cloud_topic)
         self.publish_detections = bool(detection_topic)
 
-        objects_allowed_param = list(
-            self.get_parameter("objects_allowed")
-                .get_parameter_value()
-                .string_array_value
-        )
-
-        self.objects_allowed = {
-            s.strip().lower()
-            for s in objects_allowed_param
-            if s.strip()
-        }
-
-        if self.objects_allowed:
-            self.get_logger().info(
-                f"Allowed to detect: {sorted(self.objects_allowed)}"
+        if self.publish_detections:
+            objects_allowed_param = list(
+                self.get_parameter("objects_allowed")
+                    .get_parameter_value()
+                    .string_array_value
             )
-        else:
-            self.get_logger().info("'objects_allowed' parameter is not set; allowing all detected objects")
 
-        # we use "Camera.*" settings because they were used during calibration and must be consistent
-        det_img_h, det_img_w = ObjectDetector.compute_detection_size(Camera.HEIGHT, Camera.WIDTH, stride=32)
+            self.objects_allowed = {
+                s.strip().lower()
+                for s in objects_allowed_param
+                if s.strip()
+            }
 
-        self.get_logger().info(f"inference image size: w={det_img_w} h={det_img_h}")
+            if self.objects_allowed:
+                self.get_logger().info(
+                    f"Allowed to detect: {sorted(self.objects_allowed)}"
+                )
+            else:
+                self.get_logger().info("'objects_allowed' parameter is not set; allowing all detected objects")
 
-        self.detector = ObjectDetector(
-            model_path=self.model_path,
-            imgsz=(det_img_h, det_img_w),  # must be multiple of max stride 32: 820 updating to [832]
-            conf_threshold=self.min_confidence,
-            iou_threshold=0.45,
-            device="cpu",
-        )
+            # we use "Camera.*" settings because they were used during calibration and must be consistent
+            det_img_h, det_img_w = ObjectDetector.compute_detection_size(Camera.HEIGHT, Camera.WIDTH, stride=32)
 
-        self.detection_ros_helper = DetectionRosHelper(
-            min_confidence=self.min_confidence,
-            allowed_labels=self.objects_allowed,
-        )
+            self.get_logger().info(f"inference image size: w={det_img_w} h={det_img_h}")
+
+            self.detector = ObjectDetector(
+                model_path=self.model_path,
+                imgsz=(det_img_h, det_img_w),  # must be multiple of max stride 32: 820 updating to [832]
+                conf_threshold=self.min_confidence,
+                iou_threshold=0.45,
+                device="cpu",
+            )
+
+            self.detection_ros_helper = DetectionRosHelper(
+                min_confidence=self.min_confidence,
+                allowed_labels=self.objects_allowed,
+            )
 
         self.pointcloud_helper = PointCloudHelper(self.use_mean_color, self.color_patch_fraction, self.frame_id)
 
@@ -192,6 +193,11 @@ class InferenceStereoNode(Node):
         self.get_logger().info(f"num_disp   : {self.num_disp}")
         self.get_logger().info(f"block_size : {self.block_size}")
 
+        # By default, OpenCV operations within a Python script might run single-threaded.
+        # Force OpenCV to utilize multiple CPU cores for its internal C++ math operations.
+        cv2.setUseOptimized(True)
+        cv2.setNumThreads(4) # Adjust based on how many CPU cores your platform has
+
         self.stereo = cv2.StereoSGBM_create(
             minDisparity=self.min_disp,
             numDisparities=self.num_disp,
@@ -226,38 +232,43 @@ class InferenceStereoNode(Node):
             depth=1,
         )
 
-        cloud_qos = QoSProfile(
-            reliability=ReliabilityPolicy.BEST_EFFORT,
-            history=HistoryPolicy.KEEP_LAST,
-            depth=1,
-        )
-
-        detection_qos = QoSProfile(
-            reliability=ReliabilityPolicy.RELIABLE,
-            history=HistoryPolicy.KEEP_LAST,
-            depth=5,
-        )
-
         if self._use_compressed:
             image_msg_type = CompressedImage
             self._jpeg_encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), self.jpeg_quality]
         else:
             image_msg_type = Image
 
+        # Publishers for image, camera info are not optional:
         self.image_pub = self.create_publisher(image_msg_type, self.image_topic, image_qos)
         self.camera_info_pub = self.create_publisher(CameraInfo, camera_info_topic, camera_info_qos)
 
+        # Publishers for depth image and pointcloud are optional:
         if self.publish_depth_image:
-            self.depth_image_pub = self.create_publisher(Image, depth_image_topic, image_qos)
+            depth_qos = QoSProfile(
+                reliability=ReliabilityPolicy.BEST_EFFORT,
+                history=HistoryPolicy.KEEP_LAST,
+                depth=1,
+            )
+            self.depth_image_pub = self.create_publisher(Image, depth_image_topic, depth_qos)
         else:
             self.depth_image_pub = None
 
         if self.publish_pointcloud:
+            cloud_qos = QoSProfile(
+                reliability=ReliabilityPolicy.BEST_EFFORT,
+                history=HistoryPolicy.KEEP_LAST,
+                depth=1,
+            )
             self.pub_cloud = self.create_publisher(PointCloud2, cloud_topic, cloud_qos)
         else:
             self.pub_cloud = None
 
         if self.publish_detections:
+            detection_qos = QoSProfile(
+                reliability=ReliabilityPolicy.RELIABLE,
+                history=HistoryPolicy.KEEP_LAST,
+                depth=5,
+            )
             self.detection_pub = self.create_publisher(Detection2DArray, detection_topic, detection_qos)
         else:
             self.detection_pub = None
