@@ -36,7 +36,7 @@ def generate_launch_description():
             'camera_info_topic': "camera/camera_info",
             'depth_image_topic': "stereo/depth/image_rect_raw",  # Empty string disables depth image publishing
             'frame_id': "stereo_camera",
-            'max_depth_range_m':' 5.0,  # cut-off range for detecting in depth image
+            'max_depth_range_m': 5.0,  # cut-off range for detecting in depth image
             'close_cutout_factor': 1.0,
             'far_smoothing_factor': 1.0,
             'min_valid_disp': 1.0,
