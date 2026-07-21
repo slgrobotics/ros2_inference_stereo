@@ -36,6 +36,7 @@ setup(
      entry_points={
          'console_scripts': [
             f'perception_adapter = {package_name}.perception_adapter:main',
+            f"stereo_node = {package_name}.stereo_node:main",
             f"inference_stereo_node = {package_name}.inference_stereo_node:main",
             f"detection_visualizer = {package_name}.detection_visualizer_node:main",
          ],
