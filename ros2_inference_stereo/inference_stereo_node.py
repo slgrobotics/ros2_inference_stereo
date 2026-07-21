@@ -103,6 +103,11 @@ class InferenceStereoNode(Node):
         self.detect_delay_sec = float(self.get_parameter("detect_delay_sec").value)
         self.min_confidence = float(self.get_parameter("min_confidence").value)
 
+        # we always publish 'image_topic' and 'camera_info_topic', but depth_image_topic, cloud_topic, and detection_topic are optional:
+        self.publish_depth_image = bool(depth_image_topic)
+        self.publish_pointcloud = bool(cloud_topic)
+        self.publish_detections = bool(detection_topic)
+
         objects_allowed_param = list(
             self.get_parameter("objects_allowed")
                 .get_parameter_value()
@@ -240,13 +245,22 @@ class InferenceStereoNode(Node):
             image_msg_type = Image
 
         self.image_pub = self.create_publisher(image_msg_type, self.image_topic, image_qos)
-        self.depth_image_pub = self.create_publisher(Image, depth_image_topic, image_qos)
-
         self.camera_info_pub = self.create_publisher(CameraInfo, camera_info_topic, camera_info_qos)
 
-        self.pub_cloud = self.create_publisher(PointCloud2, cloud_topic, cloud_qos)
+        if self.publish_depth_image:
+            self.depth_image_pub = self.create_publisher(Image, depth_image_topic, image_qos)
+        else:
+            self.depth_image_pub = None
 
-        self.detection_pub = self.create_publisher(Detection2DArray, detection_topic, detection_qos)
+        if self.publish_pointcloud:
+            self.pub_cloud = self.create_publisher(PointCloud2, cloud_topic, cloud_qos)
+        else:
+            self.pub_cloud = None
+
+        if self.publish_detections:
+            self.detection_pub = self.create_publisher(Detection2DArray, detection_topic, detection_qos)
+        else:
+            self.detection_pub = None
 
         self.last_time = time.time()
         self.pointcloud_packet_counter = 0
@@ -274,9 +288,17 @@ class InferenceStereoNode(Node):
         self.detections_timer.reset()
 
         image_mode = "CompressedImage" if self._use_compressed else "Image"
-        self.get_logger().info(
-            f"Publishing:  {image_mode} on '{self.image_topic}',  depth image on '{depth_image_topic}',  PointCloud2 on '{cloud_topic}',  Detection2DArray on '{detection_topic}'"
-        )
+        enabled_outputs = []
+        enabled_outputs.append(f"CameraInfo on '{camera_info_topic}'")
+        enabled_outputs.append(f"{image_mode} on '{self.image_topic}'")
+        if self.publish_depth_image:
+            enabled_outputs.append(f"Image (depth) on '{depth_image_topic}'")
+        if self.publish_pointcloud:
+            enabled_outputs.append(f"PointCloud2 on '{cloud_topic}'")
+        if self.publish_detections:
+            enabled_outputs.append(f"Detection2DArray on '{detection_topic}'")
+
+        self.get_logger().info("Publishing: " + ", ".join(enabled_outputs))
 
     def destroy_node(self):
         try:
@@ -337,34 +359,34 @@ class InferenceStereoNode(Node):
                     f"shape={latest_image.shape[1]}x{latest_image.shape[0]}"
                 )
 
-            t0 = time.perf_counter()
+            if self.publish_detections:
+                t0 = time.perf_counter()
+                detections = self.detector.infer(latest_image)
+                t1 = time.perf_counter()
 
-            detections = self.detector.infer(latest_image)
+                dt_ms = (t1 - t0) * 1000.0
 
-            t1 = time.perf_counter()
-            dt_ms = (t1 - t0) * 1000.0
+                if self.verbose:
+                    self.get_logger().info(f"Inference time: {dt_ms:.2f} ms - {len(detections)} detections:")
+                    for det in detections:
+                        x1, y1, x2, y2 = [int(round(v)) for v in det.bbox_xyxy]
+                        self.get_logger().info(f"  {x1},{y1} {x2},{y2} - {det.label} {det.confidence:.2f}")
 
-            if self.verbose:
-                self.get_logger().info(f"Inference time: {dt_ms:.2f} ms - {len(detections)} detections:")
-                for det in detections:
-                    x1, y1, x2, y2 = [int(round(v)) for v in det.bbox_xyxy]
-                    self.get_logger().info(f"  {x1},{y1} {x2},{y2} - {det.label} {det.confidence:.2f}")
+                #dbg = self.detector.draw_detections(latest_image, detections)  # image with detections overlay
 
-            #dbg = self.detector.draw_detections(latest_image, detections)  # image with detections overlay
+                # we want both messages synchronized (have same header stamp) to allow small "time_slop" in detection_visualizer
+                det_msg = self.detection_ros_helper.build_detection_array_msg(
+                    detections=detections,
+                    header=image_msg.header
+                )
 
-            # we want both messages synchronized (have same header stamp) to allow small "time_slop" in detection_visualizer
-            det_msg = self.detection_ros_helper.build_detection_array_msg(
-                detections=detections,
-                header=image_msg.header
-            )
-
-            self.detection_pub.publish(det_msg)
+                self.detection_pub.publish(det_msg)
 
             # we don't need to publish CameraInfo for every image, but we want to publish it at least once in a while 
             # to allow RViz2 and other ROS2 consumers to get the camera parameters
             # CameraInfo must have the same header stamp as the image for RViz2 to associate them together,
             # so we publish it here with the same timestamp as the image
-            if self.pointcloud_packet_counter < 10 or self.pointcloud_packet_counter % 10 == 0:
+            if self.pointcloud_packet_counter < 10 or self.pointcloud_packet_counter % 5 == 0:
                 img_h, img_w = latest_image.shape[:2]
                 cam_info = self.camera_info_helper.build_scaled_camera_info(
                     img_w,
@@ -405,45 +427,37 @@ class InferenceStereoNode(Node):
 
             # we store raw left frame here for visualization and inference
             # this is not tightly related to PointCloud
-            self.pointcloud_helper.update_latest_image(left, time_ros)
-            #self.pointcloud_helper.update_latest_image(left_rect, time_ros)  # optional - align "detections" image with PointCloud2
+            #self.pointcloud_helper.update_latest_image(left, time_ros)
+            self.pointcloud_helper.update_latest_image(left_rect, time_ros)  # optional - align "detections" image with PointCloud2
 
-            left_gray = cv2.cvtColor(left_rect, cv2.COLOR_BGR2GRAY)
-            right_gray = cv2.cvtColor(right_rect, cv2.COLOR_BGR2GRAY)
+            if self.publish_depth_image or self.publish_pointcloud:
+                # compute disparity and 3D points only if we need to publish depth image or pointcloud
+                # otherwise we can skip this expensive computation
 
-            disparity = self.stereo.compute(left_gray, right_gray).astype(np.float32) / 16.0
+                left_gray = cv2.cvtColor(left_rect, cv2.COLOR_BGR2GRAY)
+                right_gray = cv2.cvtColor(right_rect, cv2.COLOR_BGR2GRAY)
 
-            invalid_left_cols = self.num_disp
-            invalid_right_cols = self.block_size // 2
+                disparity = self.stereo.compute(left_gray, right_gray).astype(np.float32) / 16.0
 
-            valid_mask = make_valid_disparity_mask(
-                disparity,
-                min_valid_disp=self.min_valid_disp,
-                invalid_left_cols=invalid_left_cols,
-                invalid_right_cols=invalid_right_cols,
-            )
+                invalid_left_cols = self.num_disp
+                invalid_right_cols = self.block_size // 2
 
-            points_3d = cv2.reprojectImageTo3D(disparity, self.Q, handleMissingValues=False)
-            depth_image = build_depth_image(
-                disparity,
-                points_3d,
-                valid_mask,
-                max_range_m=self.max_pointcloud_range_m,
-            )
+                valid_mask = make_valid_disparity_mask(
+                    disparity,
+                    min_valid_disp=self.min_valid_disp,
+                    invalid_left_cols=invalid_left_cols,
+                    invalid_right_cols=invalid_right_cols,
+                )
 
-            points = extract_sparse_points(
-                disparity,
-                points_3d,
-                valid_mask=valid_mask,
-                rows=self.grid_rows,
-                cols=self.grid_cols,
-                max_range_m=self.max_pointcloud_range_m,
-                min_disp_confidence=self.min_disp_confidence,
-            )
+                points_3d = cv2.reprojectImageTo3D(disparity, self.Q, handleMissingValues=False)
 
-            # packet = pack_packet(seq, grid_rows, grid_cols, points, time_ros)
-            # sock.sendto(packet, (udp_ip, udp_port))
-            # frame_buffer.update(left_rect, seq, time_ros)
+            if self.publish_depth_image:
+                depth_image = build_depth_image(
+                    disparity,
+                    points_3d,
+                    valid_mask,
+                    max_range_m=self.max_pointcloud_range_m,
+                )
 
             now = time.time()
             dt = now - self.last_time
@@ -451,24 +465,42 @@ class InferenceStereoNode(Node):
             fps_now = 1.0 / dt if dt > 0 else 0.0
             self.fps_filtered = 0.9 * self.fps_filtered + 0.1 * fps_now if self.fps_filtered > 0 else fps_now
 
-            latest_msg = self.pointcloud_helper.build_pointcloud2(left_rect, time_ros, self.grid_rows, self.grid_cols, points)
-
             t1 = time.perf_counter()
             dt_ms = (t1 - t0) * 1000.0
 
-            self.pointcloud_packet_counter += 1
-            if self.log_every_n_packets > 0 and (self.pointcloud_packet_counter % self.log_every_n_packets == 0):
-                self.get_logger().info(
-                    f"seq={self.pointcloud_packet_counter}  time: {dt_ms:.2f} ms  grid={self.grid_rows}x{self.grid_cols}  num_points={len(points)}  fps={self.fps_filtered:.2f}"
+            if self.publish_pointcloud:
+                points = extract_sparse_points(
+                    disparity,
+                    points_3d,
+                    valid_mask=valid_mask,
+                    rows=self.grid_rows,
+                    cols=self.grid_cols,
+                    max_range_m=self.max_pointcloud_range_m,
+                    min_disp_confidence=self.min_disp_confidence,
                 )
+
+                # packet = pack_packet(seq, grid_rows, grid_cols, points, time_ros)
+                # sock.sendto(packet, (udp_ip, udp_port))
+                # frame_buffer.update(left_rect, seq, time_ros)
+
+                self.pointcloud_packet_counter += 1
+                if self.log_every_n_packets > 0 and (self.pointcloud_packet_counter % self.log_every_n_packets == 0):
+                    self.get_logger().info(
+                        f"seq={self.pointcloud_packet_counter}  time: {dt_ms:.2f} ms  grid={self.grid_rows}x{self.grid_cols}  num_points={len(points)}  fps={self.fps_filtered:.2f}"
+                    )
+
+                latest_msg = self.pointcloud_helper.build_pointcloud2(left_rect, time_ros, self.grid_rows, self.grid_cols, points)
+            else:
+                latest_msg = None
 
             if latest_msg is not None:
                 self.pub_cloud.publish(latest_msg)
 
-            depth_msg = self.br.cv2_to_imgmsg(depth_image.astype(np.float32), encoding="32FC1")
-            depth_msg.header.stamp = time_ros
-            depth_msg.header.frame_id = self.frame_id
-            self.depth_image_pub.publish(depth_msg)
+            if self.publish_depth_image and depth_image is not None:
+                depth_msg = self.br.cv2_to_imgmsg(depth_image.astype(np.float32), encoding="32FC1")
+                depth_msg.header.stamp = time_ros
+                depth_msg.header.frame_id = self.frame_id
+                self.depth_image_pub.publish(depth_msg)
 
         finally:
             #self.pointcloud_timer.timer_period_ns = int(self.pointcloud_delay_sec * 1e9)

@@ -89,11 +89,16 @@ def estimate_depth_cm_from_disparity(disparity_px, focal_px, baseline_m):
 
 def build_depth_image(disparity, points_3d, valid_mask, max_range_m=5.0):
     """Build a per-pixel depth image in meters from stereo reprojection data."""
-    h, w = disparity.shape[:2]
-    depth_image = np.full((h, w), np.nan, dtype=np.float32)
 
-    if points_3d is None or points_3d.shape[:2] != (h, w):
-        return depth_image
+    if disparity is None or points_3d is None or valid_mask is None:
+        return None
+
+    h, w = disparity.shape[:2]
+
+    if points_3d.shape[:2] != (h, w):
+        return None
+
+    depth_image = np.full((h, w), np.nan, dtype=np.float32)
 
     for y in range(h):
         for x in range(w):
