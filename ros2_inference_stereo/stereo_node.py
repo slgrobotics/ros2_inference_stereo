@@ -192,6 +192,15 @@ class InferenceStereoNode(Node):
                 self.get_logger().error("bad camera read")
                 return
 
+            left_rect = cv2.remap(left, self.mapLx, self.mapLy, cv2.INTER_LINEAR)
+            right_rect = cv2.remap(right, self.mapRx, self.mapRy, cv2.INTER_LINEAR)
+
+            image_msg = self.br.cv2_to_imgmsg(left_rect, encoding="bgr8")
+
+            # that's when the image was captured:
+            image_msg.header.stamp = time_ros
+            image_msg.header.frame_id = self.frame_id
+
             self.camera_info_counter += 1
 
             # publish CameraInfo every 5 frames, and also on the first 5 frames to ensure subscribers get it quickly
@@ -204,15 +213,6 @@ class InferenceStereoNode(Node):
                     image_msg.header.stamp,
                 )
                 self.camera_info_pub.publish(cam_info)
-
-            left_rect = cv2.remap(left, self.mapLx, self.mapLy, cv2.INTER_LINEAR)
-            right_rect = cv2.remap(right, self.mapRx, self.mapRy, cv2.INTER_LINEAR)
-
-            image_msg = self.br.cv2_to_imgmsg(left_rect, encoding="bgr8")
-
-            # that's when the image was captured:
-            image_msg.header.stamp = time_ros
-            image_msg.header.frame_id = self.frame_id
 
             self.image_pub.publish(image_msg)
 
