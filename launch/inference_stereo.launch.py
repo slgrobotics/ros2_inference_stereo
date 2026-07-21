@@ -46,6 +46,7 @@ def generate_launch_description():
             'image_topic': "camera/image_raw/compressed",  # or "camera/image_raw", if WiFi traffic is not a concern.
             'jpeg_quality': 80,            # JPEG quality for compressed image output (1-100, higher is better quality and larger size)
             'camera_info_topic': "camera/camera_info",
+            'depth_image_topic': "stereo/depth/image_rect_raw",
             'cloud_topic': "stereo/sparse_cloud",
             'detection_topic': 'image_inference_detections',
             'frame_id': "stereo_camera",

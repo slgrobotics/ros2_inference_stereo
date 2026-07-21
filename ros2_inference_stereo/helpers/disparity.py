@@ -87,6 +87,35 @@ def estimate_depth_cm_from_disparity(disparity_px, focal_px, baseline_m):
     return z_m * 100.0
 
 
+def build_depth_image(disparity, points_3d, valid_mask, max_range_m=5.0):
+    """Build a per-pixel depth image in meters from stereo reprojection data."""
+    h, w = disparity.shape[:2]
+    depth_image = np.full((h, w), np.nan, dtype=np.float32)
+
+    if points_3d is None or points_3d.shape[:2] != (h, w):
+        return depth_image
+
+    for y in range(h):
+        for x in range(w):
+            if not valid_mask[y, x]:
+                continue
+
+            if not np.isfinite(disparity[y, x]) or disparity[y, x] <= 0.0:
+                continue
+
+            xyz = points_3d[y, x]
+            x_cam, y_cam, z_cam = float(xyz[0]), float(xyz[1]), float(xyz[2])
+
+            if not np.isfinite(x_cam) or not np.isfinite(y_cam) or not np.isfinite(z_cam):
+                continue
+            if z_cam <= 0.0 or z_cam > max_range_m:
+                continue
+
+            depth_image[y, x] = z_cam
+
+    return depth_image
+
+
 def overlay_cell_distances(
     img,
     disparity,

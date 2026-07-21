@@ -48,7 +48,7 @@ from vision_msgs.msg import Detection2DArray
 from config.config import Camera  # Important: review and adjust camera settings in config/config.py to match your hardware and calibration.
 
 from ros2_inference_stereo.helpers import ObjectDetector, PointCloudHelper, CameraInfoHelper, DetectionRosHelper, CameraDriver
-from ros2_inference_stereo.helpers.disparity import (make_valid_disparity_mask, derive_sgbm_params, extract_sparse_points)
+from ros2_inference_stereo.helpers.disparity import (make_valid_disparity_mask, derive_sgbm_params, extract_sparse_points, build_depth_image)
 
 class InferenceStereoNode(Node):
     def __init__(self) -> None:
@@ -63,6 +63,7 @@ class InferenceStereoNode(Node):
         self.declare_parameter("cloud_topic", "stereo/sparse_cloud")
         self.declare_parameter("image_topic", "camera/image_raw")  # or "camera/image_raw/compressed"
         self.declare_parameter("camera_info_topic", "camera/camera_info")  # must be consistent with vis.launch and RViz2 config if you use RViz2 for visualization
+        self.declare_parameter("depth_image_topic", "stereo/depth/image_rect_raw")
         self.declare_parameter("jpeg_quality", 80)            # JPEG quality for compressed image output (1-100, higher is better quality and larger size)
         self.declare_parameter("detection_topic", "image_inference_detections")
         self.declare_parameter("frame_id", "stereo_camera")
@@ -87,6 +88,7 @@ class InferenceStereoNode(Node):
         self.image_topic = str(self.get_parameter("image_topic").value)
         self.jpeg_quality = int(self.get_parameter("jpeg_quality").value)
         camera_info_topic = str(self.get_parameter("camera_info_topic").value)
+        depth_image_topic = str(self.get_parameter("depth_image_topic").value)
         detection_topic = str(self.get_parameter("detection_topic").value)
         self.frame_id = str(self.get_parameter("frame_id").value)
         self.grid_size = int(self.get_parameter("grid_size").value)
@@ -238,6 +240,7 @@ class InferenceStereoNode(Node):
             image_msg_type = Image
 
         self.image_pub = self.create_publisher(image_msg_type, self.image_topic, image_qos)
+        self.depth_image_pub = self.create_publisher(Image, depth_image_topic, image_qos)
 
         self.camera_info_pub = self.create_publisher(CameraInfo, camera_info_topic, camera_info_qos)
 
@@ -272,7 +275,7 @@ class InferenceStereoNode(Node):
 
         image_mode = "CompressedImage" if self._use_compressed else "Image"
         self.get_logger().info(
-            f"Publishing:  {image_mode} on '{self.image_topic}',  PointCloud2 on '{cloud_topic}',  Detection2DArray on '{detection_topic}'"
+            f"Publishing:  {image_mode} on '{self.image_topic}',  depth image on '{depth_image_topic}',  PointCloud2 on '{cloud_topic}',  Detection2DArray on '{detection_topic}'"
         )
 
     def destroy_node(self):
@@ -421,6 +424,12 @@ class InferenceStereoNode(Node):
             )
 
             points_3d = cv2.reprojectImageTo3D(disparity, self.Q, handleMissingValues=False)
+            depth_image = build_depth_image(
+                disparity,
+                points_3d,
+                valid_mask,
+                max_range_m=self.max_pointcloud_range_m,
+            )
 
             points = extract_sparse_points(
                 disparity,
@@ -455,6 +464,11 @@ class InferenceStereoNode(Node):
 
             if latest_msg is not None:
                 self.pub_cloud.publish(latest_msg)
+
+            depth_msg = self.br.cv2_to_imgmsg(depth_image.astype(np.float32), encoding="32FC1")
+            depth_msg.header.stamp = time_ros
+            depth_msg.header.frame_id = self.frame_id
+            self.depth_image_pub.publish(depth_msg)
 
         finally:
             #self.pointcloud_timer.timer_period_ns = int(self.pointcloud_delay_sec * 1e9)
