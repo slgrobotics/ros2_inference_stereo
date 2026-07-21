@@ -32,7 +32,7 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             'calibration_file': calib_file,
-            'image_topic': "camera/image_raw"
+            'image_topic': "camera/image_raw",
             'camera_info_topic': "camera/camera_info",
             'depth_image_topic': "stereo/depth/image_rect_raw",  # Empty string disables depth image publishing
             'frame_id': "stereo_camera",
