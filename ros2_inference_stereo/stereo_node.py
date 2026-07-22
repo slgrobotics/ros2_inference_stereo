@@ -51,7 +51,7 @@ class InferenceStereoNode(Node):
         self.declare_parameter("loop_delay_sec", 0.01)      # short "sleep" after detections processing to free CPU
 
         self.verbose = bool(self.get_parameter("verbose").value)
-        self.calibration_file = str(self.get_parameter("calibration_file").value)
+        calibration_file = str(self.get_parameter("calibration_file").value)
         image_topic = str(self.get_parameter("image_topic").value)
         camera_info_topic = str(self.get_parameter("camera_info_topic").value)
         depth_image_topic = str(self.get_parameter("depth_image_topic").value)
@@ -62,25 +62,7 @@ class InferenceStereoNode(Node):
         self.min_valid_disp = float(self.get_parameter("min_valid_disp").value)
         self.loop_delay_sec = float(self.get_parameter("loop_delay_sec").value)
 
-        # Load calibration NPZ:
-        try:
-            self.get_logger().info(
-                f"Loading stereo calibration file: '{self.calibration_file}'"
-            )
-            calib = np.load(self.calibration_file)
-
-            self.camera_info_helper = CameraInfoHelper(calib)
-
-        except FileNotFoundError:
-            raise RuntimeError(f"Calibration file '{self.calibration_file}' not found")
-
-        self.mapLx = calib["mapLx"]
-        self.mapLy = calib["mapLy"]
-        self.mapRx = calib["mapRx"]
-        self.mapRy = calib["mapRy"]
-        self.Q = calib["Q"]
-        self.PL = calib["PL"]
-        self.T = calib["T"]
+        self.load_calibration(calibration_file)
 
         self.min_disp, self.num_disp, self.block_size = derive_sgbm_params(
             self.close_cutout_factor,
@@ -176,7 +158,27 @@ class InferenceStereoNode(Node):
 
         super().destroy_node()
 
+    def load_calibration(self, calibration_file):
+        # Load calibration NPZ:
+        try:
+            self.get_logger().info(
+                f"Loading stereo calibration file: '{calibration_file}'"
+            )
+            calib = np.load(calibration_file)
 
+            self.camera_info_helper = CameraInfoHelper(calib)
+
+        except FileNotFoundError:
+            raise RuntimeError(f"Calibration file '{calibration_file}' not found")
+
+        self.mapLx = calib["mapLx"]
+        self.mapLy = calib["mapLy"]
+        self.mapRx = calib["mapRx"]
+        self.mapRy = calib["mapRy"]
+        self.Q = calib["Q"]
+        #self.PL = calib["PL"]
+        #self.T = calib["T"]
+        
     def stereo_publish_callback(self) -> None:
 
         self.loop_timer.cancel()
