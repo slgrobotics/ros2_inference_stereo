@@ -62,6 +62,9 @@ class InferenceStereoNode(Node):
         self.min_valid_disp = float(self.get_parameter("min_valid_disp").value)
         self.loop_delay_sec = float(self.get_parameter("loop_delay_sec").value)
 
+        # Define processing scale factor (0.5 means half width and half height):
+        self.scale_factor = 0.5 
+
         self.load_calibration(calibration_file)
 
         self.min_disp, self.num_disp, self.block_size = derive_sgbm_params(
@@ -171,14 +174,51 @@ class InferenceStereoNode(Node):
         except FileNotFoundError:
             raise RuntimeError(f"Calibration file '{calibration_file}' not found")
 
-        self.mapLx = calib["mapLx"]
-        self.mapLy = calib["mapLy"]
-        self.mapRx = calib["mapRx"]
-        self.mapRy = calib["mapRy"]
-        self.Q = calib["Q"]
-        #self.PL = calib["PL"]
-        #self.T = calib["T"]
+        # This is how it works without scaling:
+        # self.mapLx = calib["mapLx"]
+        # self.mapLy = calib["mapLy"]
+        # self.mapRx = calib["mapRx"]
+        # self.mapRy = calib["mapRy"]
+        # self.Q = calib["Q"]
+        # #self.PL = calib["PL"]
+        # #self.T = calib["T"]
+
+        # 1. Downscale the remapping coordinates
+        # Map values represent input pixel coordinates, so they must be scaled down
+        self.mapLx = (calib["mapLx"] * self.scale_factor).astype(np.float32)
+        self.mapLy = (calib["mapLy"] * self.scale_factor).astype(np.float32)
+        self.mapRx = (calib["mapRx"] * self.scale_factor).astype(np.float32)
+        self.mapRy = (calib["mapRy"] * self.scale_factor).astype(np.float32)
+
+        # 2. Resize the mapping arrays themselves to match the smaller output frame size
+        new_width = int(calib["mapLx"].shape[1] * self.scale_factor)
+        new_height = int(calib["mapLx"].shape[0] * self.scale_factor)
         
+        self.mapLx = cv2.resize(self.mapLx, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+        self.mapLy = cv2.resize(self.mapLy, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+        self.mapRx = cv2.resize(self.mapRx, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+        self.mapRy = cv2.resize(self.mapRy, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+
+        # 3. Scale the Q matrix
+        # Structure of Q matrix:
+        # [ 1,  0,  0, -cx ]
+        # [ 0,  1,  0, -cy ]
+        # [ 0,  0,  0,   f ]
+        # [ 0,  0, -1/T, (cx - cx')/T ]
+        self.Q = calib["Q"].copy()
+        
+        # Scale principal points (cx, cy) and focal length (f)
+        self.Q[0, 3] *= self.scale_factor  # -cx
+        self.Q[1, 3] *= self.scale_factor  # -cy
+        self.Q[2, 3] *= self.scale_factor  # f
+        
+        # Scale the 1/T element since baseline division handles scaled disparity
+        self.Q[3, 2] /= self.scale_factor  # -1/T -> (-1/T) / scale
+        
+        # Scale the disparity offset parameter if present
+        self.Q[3, 3] *= self.scale_factor  # (cx - cx')/T
+
+
     def stereo_publish_callback(self) -> None:
 
         self.loop_timer.cancel()
@@ -187,8 +227,9 @@ class InferenceStereoNode(Node):
             t0 = time.perf_counter()
 
             try:
-                okL, left = self.capL.read()
-                okR, right = self.capR.read()
+                # capturing at full scale (e.g. 820x616)
+                okL, left_raw = self.capL.read()
+                okR, right_raw = self.capR.read()
 
                 time_ros = self.get_clock().now().to_msg()
 
@@ -202,6 +243,12 @@ class InferenceStereoNode(Node):
 
             t1 = time.perf_counter()
 
+            # Resize raw images to boost processing speed ---
+            # For 820x616, a fx0.5 scale results in 410x308 (4x fewer pixels)
+            left = cv2.resize(left_raw, (0, 0), fx=self.scale_factor, fy=self.scale_factor, interpolation=cv2.INTER_AREA)
+            right = cv2.resize(right_raw, (0, 0), fx=self.scale_factor, fy=self.scale_factor, interpolation=cv2.INTER_AREA)
+
+            # Use low-res maps (computed once in load_calibration())
             left_rect = cv2.remap(left, self.mapLx, self.mapLy, cv2.INTER_LINEAR)
             right_rect = cv2.remap(right, self.mapRx, self.mapRy, cv2.INTER_LINEAR)
 
@@ -218,12 +265,12 @@ class InferenceStereoNode(Node):
 
             disparity = self.stereo.compute(left_gray, right_gray).astype(np.float32) / 16.0
 
-            invalid_left_cols = self.num_disp
+            invalid_left_cols = self.num_disp * self.scale_factor
             invalid_right_cols = self.block_size // 2
 
             valid_mask = make_valid_disparity_mask(
                 disparity,
-                min_valid_disp=self.min_valid_disp,
+                min_valid_disp=self.min_valid_disp * self.scale_factor,
                 invalid_left_cols=invalid_left_cols,
                 invalid_right_cols=invalid_right_cols,
             )
