@@ -228,6 +228,8 @@ class InferenceStereoNode(Node):
 
             points_3d = cv2.reprojectImageTo3D(disparity, self.Q, handleMissingValues=False)
 
+            t2 = time.perf_counter()
+
             depth_image = build_depth_image(
                 disparity,
                 points_3d,
@@ -235,13 +237,14 @@ class InferenceStereoNode(Node):
                 max_range_m=self.max_depth_range_m,
             )
 
-            t2 = time.perf_counter()
+            t3 = time.perf_counter()
 
             dt_capture_ms = (t1 - t0) * 1000.0
-            dt_processing_ms = (t2 - t1) * 1000.0
+            dt_projecting_ms = (t2 - t1) * 1000.0
+            dt_depth_calc_ms = (t3 - t2) * 1000.0
 
             if self.verbose:
-                self.get_logger().info(f"Capture time: {dt_capture_ms:.2f} ms, Processing time: {dt_processing_ms:.2f} ms")
+                self.get_logger().info(f"Capture time: {dt_capture_ms:.2f} ms, Projecting time: {dt_projecting_ms:.2f} ms, Depth calc time: {dt_depth_calc_ms:.2f} ms")
 
             self.camera_info_counter += 1
 
