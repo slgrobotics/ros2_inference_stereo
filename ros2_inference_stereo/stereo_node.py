@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 
 # =========================================================================
+#
 # This ROS2 node captures images from dual cameras and computes stereo disparity information.
 # It publishes the rectified left Image for visualization, CameraInfo and depth Image.
 #
 # Intended use:
 #  input streams for RTAB-Map, SLAM, or other ROS2 processing nodes.
+#
+# See https://github.com/slgrobotics/articubot_one/wiki/Visual-SLAM-with-RTAB%E2%80%90Map
+#
 # =========================================================================
 
 import time
@@ -34,6 +38,7 @@ class InferenceStereoNode(Node):
 
         self.get_logger().info("stereo_node started")
 
+        self.declare_parameter("verbose", False)
         self.declare_parameter("calibration_file", "config/calib_820x616.npz")
         self.declare_parameter("image_topic", "camera/image_raw")  # or "camera/image_raw/compressed"
         self.declare_parameter("camera_info_topic", "camera/camera_info")  # must be consistent with vis.launch and RViz2 config if you use RViz2 for visualization
@@ -43,8 +48,9 @@ class InferenceStereoNode(Node):
         self.declare_parameter("close_cutout_factor", 1.0)
         self.declare_parameter("far_smoothing_factor", 1.0)
         self.declare_parameter("min_valid_disp", 1.0)
-        self.declare_parameter("loop_delay_sec", 0.02)      # short "sleep" after detections processing to free CPU
+        self.declare_parameter("loop_delay_sec", 0.01)      # short "sleep" after detections processing to free CPU
 
+        self.verbose = bool(self.get_parameter("verbose").value)
         self.calibration_file = str(self.get_parameter("calibration_file").value)
         image_topic = str(self.get_parameter("image_topic").value)
         camera_info_topic = str(self.get_parameter("camera_info_topic").value)
@@ -192,6 +198,8 @@ class InferenceStereoNode(Node):
                 self.get_logger().error("bad camera read")
                 return
 
+            t1 = time.perf_counter()
+
             left_rect = cv2.remap(left, self.mapLx, self.mapLy, cv2.INTER_LINEAR)
             right_rect = cv2.remap(right, self.mapRx, self.mapRy, cv2.INTER_LINEAR)
 
@@ -200,21 +208,6 @@ class InferenceStereoNode(Node):
             # that's when the image was captured:
             image_msg.header.stamp = time_ros
             image_msg.header.frame_id = self.frame_id
-
-            self.camera_info_counter += 1
-
-            # publish CameraInfo every 5 frames, and also on the first 5 frames to ensure subscribers get it quickly
-            if self.camera_info_counter < 5 or self.camera_info_counter % 5 == 0:
-                img_h, img_w = left.shape[:2]
-                cam_info = self.camera_info_helper.build_scaled_camera_info(
-                    img_w,
-                    img_h,
-                    image_msg.header.frame_id,
-                    image_msg.header.stamp,
-                )
-                self.camera_info_pub.publish(cam_info)
-
-            self.image_pub.publish(image_msg)
 
             # compute disparity and 3D points:
 
@@ -241,6 +234,29 @@ class InferenceStereoNode(Node):
                 valid_mask,
                 max_range_m=self.max_depth_range_m,
             )
+
+            t2 = time.perf_counter()
+
+            dt_capture_ms = (t1 - t0) * 1000.0
+            dt_processing_ms = (t2 - t1) * 1000.0
+
+            if self.verbose:
+                self.get_logger().info(f"Capture time: {dt_capture_ms:.2f} ms, Processing time: {dt_processing_ms:.2f} ms")
+
+            self.camera_info_counter += 1
+
+            # publish CameraInfo every 5 frames, and also on the first 5 frames to ensure subscribers get it quickly
+            if self.camera_info_counter < 5 or self.camera_info_counter % 5 == 0:
+                img_h, img_w = left.shape[:2]
+                cam_info = self.camera_info_helper.build_scaled_camera_info(
+                    img_w,
+                    img_h,
+                    image_msg.header.frame_id,
+                    image_msg.header.stamp,
+                )
+                self.camera_info_pub.publish(cam_info)
+
+            self.image_pub.publish(image_msg)
 
             if depth_image is not None:
                 depth_msg = self.br.cv2_to_imgmsg(depth_image.astype(np.float32), encoding="32FC1")

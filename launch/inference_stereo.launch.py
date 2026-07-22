@@ -31,7 +31,7 @@ def generate_launch_description():
         name='inference_stereo_node',
         output='screen',
         parameters=[{
-            'verbose': True,        # If true - print debug info.
+            'verbose': False,        # If true - print debug info.
             'log_every_n_packets': 10,    # 0 for no log
             'calibration_file': calib_file,
 
