@@ -265,7 +265,7 @@ class InferenceStereoNode(Node):
 
             disparity = self.stereo.compute(left_gray, right_gray).astype(np.float32) / 16.0
 
-            invalid_left_cols = self.num_disp * self.scale_factor
+            invalid_left_cols = int(self.num_disp * self.scale_factor)
             invalid_right_cols = self.block_size // 2
 
             valid_mask = make_valid_disparity_mask(
