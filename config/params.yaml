@@ -4,14 +4,15 @@ inference_stereo_node:
     verbose: True        # If true - print debug info.
     log_every_n_packets: 10     # 0 for no log
     calibration_file: '/home/ros/robot_ws/install/ros2_inference_stereo/share/ros2_inference_stereo/config/calib_820x616.npz'
+    scale_factor: 1.0  # 1.0 = full resolution, 0.5 = half resolution, etc. for stereo disparity and pointcloud processing
     model_path: 'models/yolo11n.pt'  # relative to where you launch, e.g. "~/robot_ws/models/yolo11n.pt"
     image_topic: 'camera/image_raw/compressed'   # for bounding boxes overlay preview in RViz2
     #image_topic: 'camera/image_raw'  # for bounding boxes overlay preview in RViz2, if uncompressed images are preferred
     jpeg_quality: 80                 # JPEG quality for compressed image output (1-100, higher is better quality and larger size)
     camera_info_topic: 'camera/camera_info'
-    depth_image_topic: 'stereo/depth/image_rect_raw'
-    cloud_topic: 'stereo/sparse_cloud'
-    detection_topic: 'image_inference_detections'
+    depth_image_topic: 'stereo/depth/image_rect_raw'  # Empty string disables depth image publishing
+    cloud_topic: 'stereo/sparse_cloud'                # Empty string disables sparse pointcloud publishing
+    detection_topic: 'image_inference_detections'     # Empty string disables detections publishing
     frame_id: 'stereo_camera'
     grid_size: 16  # Grid size NxN for sparse sampling
     close_cutout_factor: 1.0
@@ -26,6 +27,21 @@ inference_stereo_node:
     min_confidence: 0.6         # object detection confidence threshold
     objects_allowed: ['']       # Empty list means allow all detected objects.
     #objects_allowed: ['person', 'cup', 'bottle', 'cell phone', 'banana', 'book', 'scissors', 'dog', 'cat']  # Not case sensitive.
+
+# Stereo -> Depth Image for RTAB-Map node parameters:
+stereo_node:
+  ros__parameters:
+    verbose: True        # If true - print debug info.
+    calibration_file: '/home/ros/robot_ws/install/ros2_inference_stereo/share/ros2_inference_stereo/config/calib_820x616.npz'
+    scale_factor: 0.5  # 1.0 = full resolution, 0.5 = half resolution, etc. for stereo disparity and pointcloud processing
+    image_topic: 'camera/image_raw'  # for overlay preview, uncompressed
+    camera_info_topic: 'camera/camera_info'
+    depth_image_topic: 'stereo/depth/image_rect_raw'
+    frame_id: 'stereo_camera'
+    close_cutout_factor: 1.0
+    far_smoothing_factor: 1.0
+    min_valid_disp: 1.0
+    loop_delay_sec: 0.01      # short "sleep" after processing to free CPU
 
 # Perception adapter (BT topics relay) configuration
 perception_adapter:
