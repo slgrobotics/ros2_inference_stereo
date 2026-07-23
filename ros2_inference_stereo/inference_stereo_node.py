@@ -399,7 +399,7 @@ class InferenceStereoNode(Node):
                 self.detections_packet_counter += 1
                 if self.verbose and self.log_every_n_packets > 0 and (self.detections_packet_counter % self.log_every_n_packets == 0):
                     self.get_logger().info(
-                        f"Detections: seq={self.detections_packet_counter} Image: {latest_image.shape} fps={self.detections_fps_filtered:.2f}"
+                        f"Detections: seq={self.detections_packet_counter} Image: {latest_image.shape[:2]} fps={self.detections_fps_filtered:.2f}"
                     )
 
             # we don't need to publish CameraInfo for every image, but we want to publish it at least once in a while 
@@ -517,7 +517,7 @@ class InferenceStereoNode(Node):
                 self.pointcloud_packet_counter += 1
                 if self.verbose and self.log_every_n_packets > 0 and (self.pointcloud_packet_counter % self.log_every_n_packets == 0):
                     self.get_logger().info(
-                        f"PointCloud: seq={self.pointcloud_packet_counter}  time: {dt_ms:.2f} ms  grid={self.grid_rows}x{self.grid_cols}  num_points={len(points)}  fps={self.pointcloud_fps_filtered:.2f}"
+                        f"PointCloud: seq={self.pointcloud_packet_counter}  time: {dt_ms:.2f} ms Image: {left.shape[:2]} grid={self.grid_rows}x{self.grid_cols}  num_points={len(points)}  fps={self.pointcloud_fps_filtered:.2f}"
                     )
 
                 latest_pointcloud_msg = self.pointcloud_helper.build_pointcloud2(left_rect, time_ros, self.grid_rows, self.grid_cols, points)
