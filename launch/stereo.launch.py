@@ -31,7 +31,7 @@ def generate_launch_description():
         name='stereo_node',
         output='screen',
         parameters=[{
-            'verbose': True,   # If true - print debug info.
+            'verbose': False,   # If true - print debug info.
             'calibration_file': calib_file,
             'scale_factor': 0.5,  # 1.0 = full resolution, 0.5 = half resolution, etc.
             'image_topic': "camera/image_raw",
