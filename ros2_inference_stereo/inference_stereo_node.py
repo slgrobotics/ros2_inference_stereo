@@ -59,6 +59,7 @@ class InferenceStereoNode(Node):
         self.declare_parameter("verbose", False)
         self.declare_parameter("log_every_n_packets", 10)     # 0 for no log
         self.declare_parameter("calibration_file", "config/calib_820x616.npz")
+        self.declare_parameter("scale_factor", 1.0)  # 1.0 = full resolution, 0.5 = half resolution, etc. for stereo disparity and pointcloud processing
         self.declare_parameter("model_path", "models/yolo11n.pt")
         self.declare_parameter("cloud_topic", "stereo/sparse_cloud")  # Empty string disables sparse pointcloud publishing
         self.declare_parameter("image_topic", "camera/image_raw")  # or "camera/image_raw/compressed"
@@ -82,7 +83,8 @@ class InferenceStereoNode(Node):
 
         self.verbose = bool(self.get_parameter("verbose").value)
         self.log_every_n_packets = int(self.get_parameter("log_every_n_packets").value)
-        self.calibration_file = str(self.get_parameter("calibration_file").value)
+        calibration_file = str(self.get_parameter("calibration_file").value)
+        self.scale_factor = float(self.get_parameter("scale_factor").value)
         self.model_path = str(self.get_parameter("model_path").value)
         cloud_topic = str(self.get_parameter("cloud_topic").value)
         self.image_topic = str(self.get_parameter("image_topic").value)
@@ -102,6 +104,15 @@ class InferenceStereoNode(Node):
         self.pointcloud_delay_sec = float(self.get_parameter("pointcloud_delay_sec").value)
         self.detect_delay_sec = float(self.get_parameter("detect_delay_sec").value)
         self.min_confidence = float(self.get_parameter("min_confidence").value)
+
+        # By default, OpenCV operations within a Python script might run single-threaded.
+        # Force OpenCV to utilize multiple CPU cores for its internal C++ math operations.
+        cv2.setUseOptimized(True)
+        cv2.setNumThreads(4) # Adjust based on how many CPU cores your platform has
+
+        self.get_logger().info(f"Loading stereo calibration file: '{calibration_file}' with scale factor {self.scale_factor}")
+
+        self.camera_info_helper = CameraInfoHelper(calibration_file, self.scale_factor)
 
         # we always publish 'image_topic' and 'camera_info_topic', but depth_image_topic, cloud_topic, and detection_topic are optional:
         self.publish_depth_image = bool(depth_image_topic)  # False if empty string
@@ -147,32 +158,6 @@ class InferenceStereoNode(Node):
             )
 
         self.pointcloud_helper = PointCloudHelper(self.use_mean_color, self.color_patch_fraction, self.frame_id)
-
-        # Load calibration NPZ:
-        try:
-            self.get_logger().info(
-                f"Loading stereo calibration file: '{self.calibration_file}'"
-            )
-            calib = np.load(self.calibration_file)
-
-            self.camera_info_helper = CameraInfoHelper(calib)
-
-        except FileNotFoundError:
-            raise RuntimeError(f"Calibration file '{self.calibration_file}' not found")
-
-        self.mapLx = calib["mapLx"]
-        self.mapLy = calib["mapLy"]
-        self.mapRx = calib["mapRx"]
-        self.mapRy = calib["mapRy"]
-        self.Q = calib["Q"]
-        self.PL = calib["PL"]
-        self.T = calib["T"]
-
-        # self.width = int(calib["image_width"])
-        # self.height = int(calib["image_height"])
-
-        # self.focal_px = float(self.PL[0, 0])
-        # self.baseline_m = float(np.linalg.norm(self.T))
 
         # min_disp = minimum disparity the matcher will search
         # the algorithm searches disparities in: [min_disp, min_disp + num_disp]
@@ -433,8 +418,8 @@ class InferenceStereoNode(Node):
                 self.get_logger().error("bad camera read")
                 return
 
-            left_rect = cv2.remap(left, self.mapLx, self.mapLy, cv2.INTER_LINEAR)
-            right_rect = cv2.remap(right, self.mapRx, self.mapRy, cv2.INTER_LINEAR)
+            left_rect = cv2.remap(left, self.camera_info_helper.mapLx, self.camera_info_helper.mapLy, cv2.INTER_LINEAR)
+            right_rect = cv2.remap(right, self.camera_info_helper.mapRx, self.camera_info_helper.mapRy, cv2.INTER_LINEAR)
 
             # we store raw left frame here for visualization and inference
             # this is not tightly related to PointCloud
@@ -460,7 +445,7 @@ class InferenceStereoNode(Node):
                     invalid_right_cols=invalid_right_cols,
                 )
 
-                points_3d = cv2.reprojectImageTo3D(disparity, self.Q, handleMissingValues=False)
+                points_3d = cv2.reprojectImageTo3D(disparity, self.camera_info_helper.Q, handleMissingValues=False)
 
             if self.publish_depth_image:
                 depth_image = build_depth_image(
