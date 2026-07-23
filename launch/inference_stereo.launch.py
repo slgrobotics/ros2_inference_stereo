@@ -31,7 +31,7 @@ def generate_launch_description():
         name='inference_stereo_node',
         output='screen',
         parameters=[{
-            'verbose': False,        # If true - print debug info.
+            'verbose': True,        # If true - print debug info.
             'log_every_n_packets': 10,    # 0 for no log
             'calibration_file': calib_file,
             'scale_factor': 0.5,  # 1.0 = full resolution, 0.5 = half resolution, etc. to boost processing speed

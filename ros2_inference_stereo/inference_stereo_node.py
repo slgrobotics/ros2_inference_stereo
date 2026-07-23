@@ -266,9 +266,13 @@ class InferenceStereoNode(Node):
         else:
             self.detection_pub = None
 
-        self.last_time = time.time()
+        self.pointcloud_last_time = time.time()
         self.pointcloud_packet_counter = 0
-        self.fps_filtered = 0.0
+        self.pointcloud_fps_filtered = 0.0
+
+        self.detections_last_time = time.time()
+        self.detections_packet_counter = 0
+        self.detections_fps_filtered = 0.0
 
         # Both groups are mutually exclusive, not reentrant, so the same callback never overlaps with itself.
         self.pc_group = MutuallyExclusiveCallbackGroup()
@@ -356,12 +360,18 @@ class InferenceStereoNode(Node):
 
             self.image_pub.publish(image_msg)
 
-            if self.verbose:
-                mode = "compressed" if self._use_compressed else "raw"
-                self.get_logger().info(
-                    f"Published {mode} image: seq={self.pointcloud_packet_counter}, "
-                    f"shape={latest_image.shape[1]}x{latest_image.shape[0]}"
-                )
+            now = time.time()
+            dt = now - self.detections_last_time
+            self.detections_last_time = now
+            fps_now = 1.0 / dt if dt > 0 else 0.0
+            self.detections_fps_filtered = 0.9 * self.detections_fps_filtered + 0.1 * fps_now if self.detections_fps_filtered > 0 else fps_now
+
+            # if self.verbose:
+            #     mode = "compressed" if self._use_compressed else "raw"
+            #     self.get_logger().info(
+            #         f"Published {mode} image: seq={self.detections_packet_counter}, "
+            #         f"shape={latest_image.shape[1]}x{latest_image.shape[0]}"
+            #     )
 
             if self.publish_detections:
                 t0 = time.perf_counter()
@@ -386,11 +396,17 @@ class InferenceStereoNode(Node):
 
                 self.detection_pub.publish(det_msg)
 
+                self.detections_packet_counter += 1
+                if self.verbose and self.log_every_n_packets > 0 and (self.detections_packet_counter % self.log_every_n_packets == 0):
+                    self.get_logger().info(
+                        f"detections: seq={self.detections_packet_counter}  time: {dt_ms:.2f} ms  grid={self.grid_rows}x{self.grid_cols}  num_points={len(points)}  fps={self.detections_fps_filtered:.2f}"
+                    )
+
             # we don't need to publish CameraInfo for every image, but we want to publish it at least once in a while 
             # to allow RViz2 and other ROS2 consumers to get the camera parameters
             # CameraInfo must have the same header stamp as the image for RViz2 to associate them together,
             # so we publish it here with the same timestamp as the image
-            if self.pointcloud_packet_counter < 10 or self.pointcloud_packet_counter % 5 == 0:
+            if self.detections_packet_counter < 10 or self.detections_packet_counter % 5 == 0:
                 img_h, img_w = latest_image.shape[:2]
                 cam_info = self.camera_info_helper.build_scaled_camera_info(
                     img_w,
@@ -475,10 +491,10 @@ class InferenceStereoNode(Node):
                 )
 
             now = time.time()
-            dt = now - self.last_time
-            self.last_time = now
+            dt = now - self.pointcloud_last_time
+            self.pointcloud_last_time = now
             fps_now = 1.0 / dt if dt > 0 else 0.0
-            self.fps_filtered = 0.9 * self.fps_filtered + 0.1 * fps_now if self.fps_filtered > 0 else fps_now
+            self.pointcloud_fps_filtered = 0.9 * self.pointcloud_fps_filtered + 0.1 * fps_now if self.pointcloud_fps_filtered > 0 else fps_now
 
             t1 = time.perf_counter()
             dt_ms = (t1 - t0) * 1000.0
@@ -499,17 +515,17 @@ class InferenceStereoNode(Node):
                 # frame_buffer.update(left_rect, seq, time_ros)
 
                 self.pointcloud_packet_counter += 1
-                if self.log_every_n_packets > 0 and (self.pointcloud_packet_counter % self.log_every_n_packets == 0):
+                if self.verbose and self.log_every_n_packets > 0 and (self.pointcloud_packet_counter % self.log_every_n_packets == 0):
                     self.get_logger().info(
-                        f"seq={self.pointcloud_packet_counter}  time: {dt_ms:.2f} ms  grid={self.grid_rows}x{self.grid_cols}  num_points={len(points)}  fps={self.fps_filtered:.2f}"
+                        f"PointCloud: seq={self.pointcloud_packet_counter}  time: {dt_ms:.2f} ms  grid={self.grid_rows}x{self.grid_cols}  num_points={len(points)}  fps={self.pointcloud_fps_filtered:.2f}"
                     )
 
-                latest_msg = self.pointcloud_helper.build_pointcloud2(left_rect, time_ros, self.grid_rows, self.grid_cols, points)
+                latest_pointcloud_msg = self.pointcloud_helper.build_pointcloud2(left_rect, time_ros, self.grid_rows, self.grid_cols, points)
             else:
-                latest_msg = None
+                latest_pointcloud_msg = None
 
-            if latest_msg is not None:
-                self.pub_cloud.publish(latest_msg)
+            if latest_pointcloud_msg is not None:
+                self.pub_cloud.publish(latest_pointcloud_msg)
 
             if self.publish_depth_image and depth_image is not None:
                 depth_msg = self.br.cv2_to_imgmsg(depth_image.astype(np.float32), encoding="32FC1")
