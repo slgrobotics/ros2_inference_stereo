@@ -112,6 +112,9 @@ class InferenceStereoNode(Node):
         cv2.setUseOptimized(True)
         cv2.setNumThreads(4) # Adjust based on how many CPU cores your platform has
 
+        # to monitor memory use:
+        self.process = psutil.Process(os.getpid())
+
         self.get_logger().info(f"Loading stereo calibration file: '{calibration_file}' with scale factor {self.scale_factor}")
 
         self.camera_info_helper = CameraInfoHelper(calibration_file, self.scale_factor)
@@ -406,10 +409,9 @@ class InferenceStereoNode(Node):
 
                 if self.verbose and self.detections_packet_counter % 10 == 0:
                     rss = self.process.memory_info().rss / (1024 * 1024)
-                    self.get_logger().info(f"Memory used: RSS: {rss:.1f} MB")
                     vm = psutil.virtual_memory()
                     self.get_logger().info(
-                        f"RAM used: {vm.percent:.1f}%  "
+                        f"RAM used: {rss:.1f} MB {vm.percent:.1f}%  "
                         f"available: {vm.available/1024**2:.0f} MB"
                     )
 
