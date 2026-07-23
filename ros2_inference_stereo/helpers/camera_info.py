@@ -8,8 +8,6 @@ class CameraInfoHelper:
         try:
             calib = np.load(calibration_file)
 
-            self.camera_info_helper = CameraInfoHelper(calib)
-
         except FileNotFoundError:
             raise RuntimeError(f"Calibration file '{calibration_file}' not found")
 
