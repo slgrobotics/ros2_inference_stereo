@@ -29,6 +29,8 @@
 # =========================================================================
 
 import time
+import psutil
+import os
 
 import numpy as np
 
@@ -400,6 +402,15 @@ class InferenceStereoNode(Node):
                 if self.verbose and self.log_every_n_packets > 0 and (self.detections_packet_counter % self.log_every_n_packets == 0):
                     self.get_logger().info(
                         f"Detections: seq={self.detections_packet_counter} Image: {latest_image.shape[:2]} fps={self.detections_fps_filtered:.2f}"
+                    )
+
+                if self.verbose and self.detections_packet_counter % 10 == 0:
+                    rss = self.process.memory_info().rss / (1024 * 1024)
+                    self.get_logger().info(f"Memory used: RSS: {rss:.1f} MB")
+                    vm = psutil.virtual_memory()
+                    self.get_logger().info(
+                        f"RAM used: {vm.percent:.1f}%  "
+                        f"available: {vm.available/1024**2:.0f} MB"
                     )
 
             # we don't need to publish CameraInfo for every image, but we want to publish it at least once in a while 
