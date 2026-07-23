@@ -3,9 +3,72 @@ from sensor_msgs.msg import CameraInfo
 from builtin_interfaces.msg import Time
 
 class CameraInfoHelper:
-    def __init__(self, calib):
-        self.calib = calib
+    def __init__(self, calibration_file, scale_factor):
+        # Load calibration NPZ:
+        try:
+            self.get_logger().info(
+                f"Loading stereo calibration file: '{calibration_file}'"
+            )
+            calib = np.load(calibration_file)
+
+            self.camera_info_helper = CameraInfoHelper(calib)
+
+        except FileNotFoundError:
+            raise RuntimeError(f"Calibration file '{calibration_file}' not found")
+
         self.camera_info_template = self._load_camera_info_template()
+
+        # This is how it works without scaling:
+        # self.mapLx = calib["mapLx"]
+        # self.mapLy = calib["mapLy"]
+        # self.mapRx = calib["mapRx"]
+        # self.mapRy = calib["mapRy"]
+        # self.Q = calib["Q"]
+        # #self.PL = calib["PL"]
+        # #self.T = calib["T"]
+
+        mapLx = calib["mapLx"]
+        mapLy = calib["mapLy"]
+        mapRx = calib["mapRx"]
+        mapRy = calib["mapRy"]
+
+        new_w = int(mapLx.shape[1] * scale_factor)
+        new_h = int(mapLx.shape[0] * scale_factor)
+
+        self.mapLx = cv2.resize(
+            mapLx,
+            (new_w, new_h),
+            interpolation=cv2.INTER_NEAREST
+        ).astype(np.float32) * scale_factor
+
+        self.mapLy = cv2.resize(
+            mapLy,
+            (new_w, new_h),
+            interpolation=cv2.INTER_NEAREST).astype(np.float32) * scale_factor
+
+        mapRx = calib["mapRx"]
+        mapRy = calib["mapRy"]
+
+        self.mapRx = cv2.resize(
+            mapRx,
+            (new_w, new_h),
+            interpolation=cv2.INTER_NEAREST
+        ).astype(np.float32) * scale_factor
+
+        self.mapRy = cv2.resize(
+            mapRy,
+            (new_w, new_h),
+            interpolation=cv2.INTER_NEAREST
+        ).astype(np.float32) * scale_factor
+
+        self.Q = calib["Q"].copy()
+
+        self.Q[0,3] *= scale_factor
+        self.Q[1,3] *= scale_factor
+        self.Q[2,3] *= scale_factor
+        # self.Q[3,2]  # DON'T TOUCH
+
+        self.Q[3,3] *= scale_factor
 
     def _load_camera_info_template(self) -> CameraInfo:
         required = ["K1", "D1", "image_width", "image_height"]

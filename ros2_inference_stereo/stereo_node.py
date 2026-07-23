@@ -30,7 +30,7 @@ from sensor_msgs.msg import Image, CameraInfo
 from config.config import Camera  # Important: review and adjust camera settings in config/config.py to match your hardware and calibration.
 
 from ros2_inference_stereo.helpers import CameraInfoHelper, CameraDriver
-from ros2_inference_stereo.helpers.disparity import (make_valid_disparity_mask, derive_sgbm_params, extract_sparse_points, build_depth_image)
+from ros2_inference_stereo.helpers.disparity import (make_valid_disparity_mask, derive_sgbm_params, build_depth_image)
 
 class InferenceStereoNode(Node):
     def __init__(self) -> None:
@@ -64,7 +64,7 @@ class InferenceStereoNode(Node):
         self.min_valid_disp = float(self.get_parameter("min_valid_disp").value)
         self.loop_delay_sec = float(self.get_parameter("loop_delay_sec").value)
 
-        self.load_calibration(calibration_file)
+        self.camera_info_helper = CameraInfoHelper(calibration_file, self.scale_factor)
 
         self.min_disp, self.num_disp, self.block_size = derive_sgbm_params(
             self.close_cutout_factor,
@@ -168,73 +168,6 @@ class InferenceStereoNode(Node):
 
         super().destroy_node()
 
-    def load_calibration(self, calibration_file):
-        # Load calibration NPZ:
-        try:
-            self.get_logger().info(
-                f"Loading stereo calibration file: '{calibration_file}'"
-            )
-            calib = np.load(calibration_file)
-
-            self.camera_info_helper = CameraInfoHelper(calib)
-
-        except FileNotFoundError:
-            raise RuntimeError(f"Calibration file '{calibration_file}' not found")
-
-        # This is how it works without scaling:
-        # self.mapLx = calib["mapLx"]
-        # self.mapLy = calib["mapLy"]
-        # self.mapRx = calib["mapRx"]
-        # self.mapRy = calib["mapRy"]
-        # self.Q = calib["Q"]
-        # #self.PL = calib["PL"]
-        # #self.T = calib["T"]
-
-        mapLx = calib["mapLx"]
-        mapLy = calib["mapLy"]
-        mapRx = calib["mapRx"]
-        mapRy = calib["mapRy"]
-
-        new_w = int(mapLx.shape[1] * self.scale_factor)
-        new_h = int(mapLx.shape[0] * self.scale_factor)
-
-        self.mapLx = cv2.resize(
-            mapLx,
-            (new_w, new_h),
-            interpolation=cv2.INTER_NEAREST
-        ).astype(np.float32) * self.scale_factor
-
-        self.mapLy = cv2.resize(
-            mapLy,
-            (new_w, new_h),
-            interpolation=cv2.INTER_NEAREST).astype(np.float32) * self.scale_factor
-
-        mapRx = calib["mapRx"]
-        mapRy = calib["mapRy"]
-
-        self.mapRx = cv2.resize(
-            mapRx,
-            (new_w, new_h),
-            interpolation=cv2.INTER_NEAREST
-        ).astype(np.float32) * self.scale_factor
-
-        self.mapRy = cv2.resize(
-            mapRy,
-            (new_w, new_h),
-            interpolation=cv2.INTER_NEAREST
-        ).astype(np.float32) * self.scale_factor
-
-        self.Q = calib["Q"].copy()
-
-        self.Q[0,3] *= self.scale_factor
-        self.Q[1,3] *= self.scale_factor
-        self.Q[2,3] *= self.scale_factor
-
-        # DON'T TOUCH
-        # self.Q[3,2]
-
-        self.Q[3,3] *= self.scale_factor
-
     def stereo_publish_callback(self) -> None:
 
         self.loop_timer.cancel()
@@ -265,8 +198,8 @@ class InferenceStereoNode(Node):
             right = cv2.resize(right_raw, (0, 0), fx=self.scale_factor, fy=self.scale_factor, interpolation=cv2.INTER_AREA)
 
             # Use low-res maps (computed once in load_calibration())
-            left_rect = cv2.remap(left, self.mapLx, self.mapLy, cv2.INTER_LINEAR)
-            right_rect = cv2.remap(right, self.mapRx, self.mapRy, cv2.INTER_LINEAR)
+            left_rect = cv2.remap(left, self.mapLx, self.camera_info_helper.mapLy, cv2.INTER_LINEAR)
+            right_rect = cv2.remap(right, self.mapRx, self.camera_info_helper.mapRy, cv2.INTER_LINEAR)
 
             image_msg = self.br.cv2_to_imgmsg(left_rect, encoding="bgr8")
 
@@ -300,7 +233,7 @@ class InferenceStereoNode(Node):
                 invalid_right_cols=invalid_right_cols,
             )
 
-            points_3d = cv2.reprojectImageTo3D(disparity, self.Q, handleMissingValues=False)
+            points_3d = cv2.reprojectImageTo3D(disparity, self.camera_info_helper.Q, handleMissingValues=False)
 
             t2 = time.perf_counter()
 
