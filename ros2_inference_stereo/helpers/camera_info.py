@@ -6,9 +6,6 @@ class CameraInfoHelper:
     def __init__(self, calibration_file, scale_factor):
         # Load calibration NPZ:
         try:
-            self.get_logger().info(
-                f"Loading stereo calibration file: '{calibration_file}'"
-            )
             calib = np.load(calibration_file)
 
             self.camera_info_helper = CameraInfoHelper(calib)

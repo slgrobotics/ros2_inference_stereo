@@ -64,6 +64,8 @@ class InferenceStereoNode(Node):
         self.min_valid_disp = float(self.get_parameter("min_valid_disp").value)
         self.loop_delay_sec = float(self.get_parameter("loop_delay_sec").value)
 
+        self.get_logger().info(f"Loading stereo calibration file: '{calibration_file}' with scale factor {self.scale_factor}")
+
         self.camera_info_helper = CameraInfoHelper(calibration_file, self.scale_factor)
 
         self.min_disp, self.num_disp, self.block_size = derive_sgbm_params(
