@@ -1,4 +1,6 @@
 import numpy as np
+import cv2
+
 from sensor_msgs.msg import CameraInfo
 from builtin_interfaces.msg import Time
 

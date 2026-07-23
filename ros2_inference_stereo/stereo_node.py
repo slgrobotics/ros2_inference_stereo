@@ -64,6 +64,11 @@ class InferenceStereoNode(Node):
         self.min_valid_disp = float(self.get_parameter("min_valid_disp").value)
         self.loop_delay_sec = float(self.get_parameter("loop_delay_sec").value)
 
+        # By default, OpenCV operations within a Python script might run single-threaded.
+        # Force OpenCV to utilize multiple CPU cores for its internal C++ math operations.
+        cv2.setUseOptimized(True)
+        cv2.setNumThreads(4) # Adjust based on how many CPU cores your platform has
+
         self.get_logger().info(f"Loading stereo calibration file: '{calibration_file}' with scale factor {self.scale_factor}")
 
         self.camera_info_helper = CameraInfoHelper(calibration_file, self.scale_factor)
@@ -84,11 +89,6 @@ class InferenceStereoNode(Node):
         self.get_logger().info(f"min_disp   : {self.min_disp}")
         self.get_logger().info(f"num_disp   : {self.num_disp}")
         self.get_logger().info(f"block_size : {self.block_size}")
-
-        # By default, OpenCV operations within a Python script might run single-threaded.
-        # Force OpenCV to utilize multiple CPU cores for its internal C++ math operations.
-        cv2.setUseOptimized(True)
-        cv2.setNumThreads(4) # Adjust based on how many CPU cores your platform has
 
         self.stereo = cv2.StereoSGBM_create(
             minDisparity=self.min_disp,
