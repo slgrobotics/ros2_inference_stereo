@@ -7,12 +7,11 @@ class CameraInfoHelper:
         # Load calibration NPZ:
         try:
             calib = np.load(calibration_file)
-            self.calib = calib
 
         except FileNotFoundError:
             raise RuntimeError(f"Calibration file '{calibration_file}' not found")
 
-        self.camera_info_template = self._load_camera_info_template()
+        self.camera_info_template = self._load_camera_info_template(calib)
 
         # This is how it works without scaling:
         # self.mapLx = calib["mapLx"]
@@ -66,17 +65,17 @@ class CameraInfoHelper:
 
         self.Q[3,3] *= scale_factor
 
-    def _load_camera_info_template(self) -> CameraInfo:
+    def _load_camera_info_template(self, calib) -> CameraInfo:
         required = ["K1", "D1", "image_width", "image_height"]
         for key in required:
-            if key not in self.calib:
+            if key not in calib:
                 raise KeyError(f"Calibration is missing required key '{key}'")
 
-        k1 = self.calib["K1"]
-        d1 = self.calib["D1"]
+        k1 = calib["K1"]
+        d1 = calib["D1"]
 
-        width = int(self.calib["image_width"])
-        height = int(self.calib["image_height"])
+        width = int(calib["image_width"])
+        height = int(calib["image_height"])
 
         info = CameraInfo()
         info.width = width
@@ -90,9 +89,9 @@ class CameraInfoHelper:
             float(k1[2, 0]), float(k1[2, 1]), float(k1[2, 2]),
         ]
 
-        if "RL" in self.calib and "PL" in self.calib:
-            rl = self.calib["RL"]
-            pl = self.calib["PL"]
+        if "RL" in calib and "PL" in calib:
+            rl = calib["RL"]
+            pl = calib["PL"]
 
             info.r = [
                 float(rl[0, 0]), float(rl[0, 1]), float(rl[0, 2]),
