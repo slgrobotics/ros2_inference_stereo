@@ -399,7 +399,7 @@ class InferenceStereoNode(Node):
                 self.detections_packet_counter += 1
                 if self.verbose and self.log_every_n_packets > 0 and (self.detections_packet_counter % self.log_every_n_packets == 0):
                     self.get_logger().info(
-                        f"detections: seq={self.detections_packet_counter}  time: {dt_ms:.2f} ms  grid={self.grid_rows}x{self.grid_cols}  num_points={len(points)}  fps={self.detections_fps_filtered:.2f}"
+                        f"Detections: seq={self.detections_packet_counter} Image: {latest_image.shape} fps={self.detections_fps_filtered:.2f}"
                     )
 
             # we don't need to publish CameraInfo for every image, but we want to publish it at least once in a while 
