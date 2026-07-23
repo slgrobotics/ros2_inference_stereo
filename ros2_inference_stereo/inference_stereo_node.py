@@ -174,6 +174,14 @@ class InferenceStereoNode(Node):
             self.far_smoothing_factor
         )
 
+        # Scale disparity search range for reduced image size
+        if self.scale_factor != 1.0:
+            self.min_disp = int(round(self.min_disp * self.scale_factor))
+            self.num_disp = int(round(self.num_disp * self.scale_factor))
+
+            # StereoSGBM requires numDisparities to be divisible by 16
+            self.num_disp = max(16, (self.num_disp // 16) * 16)
+
         self.get_logger().info(f"min_disp   : {self.min_disp}")
         self.get_logger().info(f"num_disp   : {self.num_disp}")
         self.get_logger().info(f"block_size : {self.block_size}")
