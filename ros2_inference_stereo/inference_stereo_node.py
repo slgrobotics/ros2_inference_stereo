@@ -405,8 +405,9 @@ class InferenceStereoNode(Node):
             t0 = time.perf_counter()
 
             try:
-                okL, left = self.capL.read()
-                okR, right = self.capR.read()
+                # capturing at full scale (e.g. 820x616)
+                okL, left_raw = self.capL.read()
+                okR, right_raw = self.capR.read()
 
                 time_ros = self.get_clock().now().to_msg()
 
@@ -418,13 +419,19 @@ class InferenceStereoNode(Node):
                 self.get_logger().error("bad camera read")
                 return
 
+            # Resize raw images to boost processing speed ---
+            # For 820x616, a fx0.5 scale results in 410x308 (4x fewer pixels)
+            left = cv2.resize(left_raw, (0, 0), fx=self.scale_factor, fy=self.scale_factor, interpolation=cv2.INTER_AREA)
+            right = cv2.resize(right_raw, (0, 0), fx=self.scale_factor, fy=self.scale_factor, interpolation=cv2.INTER_AREA)
+
+            # Use low-res maps (computed once in load_calibration())
             left_rect = cv2.remap(left, self.camera_info_helper.mapLx, self.camera_info_helper.mapLy, cv2.INTER_LINEAR)
             right_rect = cv2.remap(right, self.camera_info_helper.mapRx, self.camera_info_helper.mapRy, cv2.INTER_LINEAR)
 
-            # we store raw left frame here for visualization and inference
+            # we store full size raw left frame here for visualization and inference
             # this is not tightly related to PointCloud
-            #self.pointcloud_helper.update_latest_image(left, time_ros)
-            self.pointcloud_helper.update_latest_image(left_rect, time_ros)  # optional - align "detections" image with PointCloud2
+            self.pointcloud_helper.update_latest_image(left_raw, time_ros)
+            #self.pointcloud_helper.update_latest_image(left_rect, time_ros)  # optional - align "detections" image with PointCloud2
 
             if self.publish_depth_image or self.publish_pointcloud:
                 # compute disparity and 3D points only if we need to publish depth image or pointcloud
@@ -435,7 +442,8 @@ class InferenceStereoNode(Node):
 
                 disparity = self.stereo.compute(left_gray, right_gray).astype(np.float32) / 16.0
 
-                invalid_left_cols = self.num_disp
+                # mask array dimensions:
+                invalid_left_cols = int(self.num_disp * self.scale_factor)
                 invalid_right_cols = self.block_size // 2
 
                 valid_mask = make_valid_disparity_mask(
@@ -444,6 +452,9 @@ class InferenceStereoNode(Node):
                     invalid_left_cols=invalid_left_cols,
                     invalid_right_cols=invalid_right_cols,
                 )
+
+                # for debugging - see disparity image
+                #depth_image = cv2.normalize(disparity, None, 0, 255, cv2.NORM_MINMAX)
 
                 points_3d = cv2.reprojectImageTo3D(disparity, self.camera_info_helper.Q, handleMissingValues=False)
 

@@ -34,7 +34,7 @@ def generate_launch_description():
             'verbose': False,        # If true - print debug info.
             'log_every_n_packets': 10,    # 0 for no log
             'calibration_file': calib_file,
-            'scale_factor': 1.0,  # 1.0 = full resolution, 0.5 = half resolution, etc.
+            'scale_factor': 0.5,  # 1.0 = full resolution, 0.5 = half resolution, etc. to boost processing speed
 
             # ONNX: see this guide: https://github.com/slgrobotics/ros2_inference_stereo/blob/main/README.md#fasteroptimized-model-format---onnx
             'model_path': 'models/yolo11n.pt',  # relative to where you launch, e.g. "~/robot_ws/models/*" or "~/launch/models/*"
