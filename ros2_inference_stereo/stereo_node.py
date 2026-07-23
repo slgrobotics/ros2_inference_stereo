@@ -40,6 +40,7 @@ class InferenceStereoNode(Node):
 
         self.declare_parameter("verbose", False)
         self.declare_parameter("calibration_file", "config/calib_820x616.npz")
+        self.declare_parameter("scale_factor", 0.5)  # 1.0 = full resolution, 0.5 = half resolution, etc.
         self.declare_parameter("image_topic", "camera/image_raw")  # or "camera/image_raw/compressed"
         self.declare_parameter("camera_info_topic", "camera/camera_info")  # must be consistent with vis.launch and RViz2 config if you use RViz2 for visualization
         self.declare_parameter("depth_image_topic", "stereo/depth/image_rect_raw")  # Empty string disables depth image publishing
@@ -52,6 +53,7 @@ class InferenceStereoNode(Node):
 
         self.verbose = bool(self.get_parameter("verbose").value)
         calibration_file = str(self.get_parameter("calibration_file").value)
+        self.scale_factor = float(self.get_parameter("scale_factor").value)
         image_topic = str(self.get_parameter("image_topic").value)
         camera_info_topic = str(self.get_parameter("camera_info_topic").value)
         depth_image_topic = str(self.get_parameter("depth_image_topic").value)
@@ -62,15 +64,20 @@ class InferenceStereoNode(Node):
         self.min_valid_disp = float(self.get_parameter("min_valid_disp").value)
         self.loop_delay_sec = float(self.get_parameter("loop_delay_sec").value)
 
-        # Define processing scale factor (0.5 means half width and half height):
-        self.scale_factor = 0.5 
-
         self.load_calibration(calibration_file)
 
         self.min_disp, self.num_disp, self.block_size = derive_sgbm_params(
             self.close_cutout_factor,
             self.far_smoothing_factor
         )
+
+        # Scale disparity search range for reduced image size
+        if self.scale_factor != 1.0:
+            self.min_disp = int(round(self.min_disp * self.scale_factor))
+            self.num_disp = int(round(self.num_disp * self.scale_factor))
+
+            # StereoSGBM requires numDisparities to be divisible by 16
+            self.num_disp = max(16, (self.num_disp // 16) * 16)
 
         self.get_logger().info(f"min_disp   : {self.min_disp}")
         self.get_logger().info(f"num_disp   : {self.num_disp}")
@@ -183,41 +190,50 @@ class InferenceStereoNode(Node):
         # #self.PL = calib["PL"]
         # #self.T = calib["T"]
 
-        # 1. Downscale the remapping coordinates
-        # Map values represent input pixel coordinates, so they must be scaled down
-        self.mapLx = (calib["mapLx"] * self.scale_factor).astype(np.float32)
-        self.mapLy = (calib["mapLy"] * self.scale_factor).astype(np.float32)
-        self.mapRx = (calib["mapRx"] * self.scale_factor).astype(np.float32)
-        self.mapRy = (calib["mapRy"] * self.scale_factor).astype(np.float32)
+        mapLx = calib["mapLx"]
+        mapLy = calib["mapLy"]
+        mapRx = calib["mapRx"]
+        mapRy = calib["mapRy"]
 
-        # 2. Resize the mapping arrays themselves to match the smaller output frame size
-        new_width = int(calib["mapLx"].shape[1] * self.scale_factor)
-        new_height = int(calib["mapLx"].shape[0] * self.scale_factor)
-        
-        self.mapLx = cv2.resize(self.mapLx, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
-        self.mapLy = cv2.resize(self.mapLy, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
-        self.mapRx = cv2.resize(self.mapRx, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
-        self.mapRy = cv2.resize(self.mapRy, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+        new_w = int(mapLx.shape[1] * self.scale_factor)
+        new_h = int(mapLx.shape[0] * self.scale_factor)
 
-        # 3. Scale the Q matrix
-        # Structure of Q matrix:
-        # [ 1,  0,  0, -cx ]
-        # [ 0,  1,  0, -cy ]
-        # [ 0,  0,  0,   f ]
-        # [ 0,  0, -1/T, (cx - cx')/T ]
+        self.mapLx = cv2.resize(
+            mapLx,
+            (new_w, new_h),
+            interpolation=cv2.INTER_NEAREST
+        ).astype(np.float32) * self.scale_factor
+
+        self.mapLy = cv2.resize(
+            mapLy,
+            (new_w, new_h),
+            interpolation=cv2.INTER_NEAREST).astype(np.float32) * self.scale_factor
+
+        mapRx = calib["mapRx"]
+        mapRy = calib["mapRy"]
+
+        self.mapRx = cv2.resize(
+            mapRx,
+            (new_w, new_h),
+            interpolation=cv2.INTER_NEAREST
+        ).astype(np.float32) * self.scale_factor
+
+        self.mapRy = cv2.resize(
+            mapRy,
+            (new_w, new_h),
+            interpolation=cv2.INTER_NEAREST
+        ).astype(np.float32) * self.scale_factor
+
         self.Q = calib["Q"].copy()
-        
-        # Scale principal points (cx, cy) and focal length (f)
-        self.Q[0, 3] *= self.scale_factor  # -cx
-        self.Q[1, 3] *= self.scale_factor  # -cy
-        self.Q[2, 3] *= self.scale_factor  # f
-        
-        # Scale the 1/T element since baseline division handles scaled disparity
-        self.Q[3, 2] /= self.scale_factor  # -1/T -> (-1/T) / scale
-        
-        # Scale the disparity offset parameter if present
-        self.Q[3, 3] *= self.scale_factor  # (cx - cx')/T
 
+        self.Q[0,3] *= self.scale_factor
+        self.Q[1,3] *= self.scale_factor
+        self.Q[2,3] *= self.scale_factor
+
+        # DON'T TOUCH
+        # self.Q[3,2]
+
+        self.Q[3,3] *= self.scale_factor
 
     def stereo_publish_callback(self) -> None:
 
@@ -260,6 +276,14 @@ class InferenceStereoNode(Node):
 
             # compute disparity and 3D points:
 
+            # for debugging - see rectified images sizes
+            # self.get_logger().info(
+            #     f"left_rect : {left_rect.shape} {left_rect.dtype}"
+            # )
+            # self.get_logger().info(
+            #     f"right_rect: {right_rect.shape} {right_rect.dtype}"
+            # )
+
             left_gray = cv2.cvtColor(left_rect, cv2.COLOR_BGR2GRAY)
             right_gray = cv2.cvtColor(right_rect, cv2.COLOR_BGR2GRAY)
 
@@ -271,7 +295,7 @@ class InferenceStereoNode(Node):
 
             valid_mask = make_valid_disparity_mask(
                 disparity,
-                min_valid_disp=self.min_valid_disp * self.scale_factor,
+                min_valid_disp=self.min_valid_disp,
                 invalid_left_cols=invalid_left_cols,
                 invalid_right_cols=invalid_right_cols,
             )
@@ -280,12 +304,10 @@ class InferenceStereoNode(Node):
 
             t2 = time.perf_counter()
 
-            depth_image = build_depth_image(
-                disparity,
-                points_3d,
-                valid_mask,
-                max_range_m=self.max_depth_range_m,
-            )
+            # for debugging - see disparity image
+            #depth_image = cv2.normalize(disparity, None, 0, 255, cv2.NORM_MINMAX)
+
+            depth_image = build_depth_image( disparity, points_3d, valid_mask, max_range_m=self.max_depth_range_m,)
 
             t3 = time.perf_counter()
 

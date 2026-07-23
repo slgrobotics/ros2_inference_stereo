@@ -33,6 +33,7 @@ def generate_launch_description():
         parameters=[{
             'verbose': True,   # If true - print debug info.
             'calibration_file': calib_file,
+            'scale_factor': 0.5,  # 1.0 = full resolution, 0.5 = half resolution, etc.
             'image_topic': "camera/image_raw",
             'camera_info_topic': "camera/camera_info",
             'depth_image_topic': "stereo/depth/image_rect_raw",  # Empty string disables depth image publishing
