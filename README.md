@@ -238,6 +238,31 @@ cd ~/inf_stereo_ws
 colcon build; source install/setup.bash; ros2 launch ros2_inference_stereo vis.launch.py
 ```
 
+## Performance options
+
+There are ways to increase FPS for stereo pipeline.
+
+1. Use `stereo_node` instead of `inference_stereo_node` - corresponding launch command:
+```
+ros2 launch ros2_inference_stereo inference_stereo.launch.py
+```
+The `stereo_node` node is optimized to work with [RTAB-Map](https://github.com/slgrobotics/articubot_one/wiki/Visual-SLAM-with-RTAB%E2%80%90Map)
+It only publishes the following topics:
+```
+image_topic: 'camera/image_raw'
+camera_info_topic: 'camera/camera_info'
+depth_image_topic: 'stereo/depth/image_rect_raw'
+```
+
+2. Set `'scale_factor': 0.5` to use half resolution to boost processing speed 
+
+The `inference_stereo_node` disables related portions of code when you set the following parameters to empty line:
+```
+depth_image_topic: 'stereo/depth/image_rect_raw'
+cloud_topic: 'stereo/sparse_cloud'
+detection_topic: 'image_inference_detections'
+```
+
 ## Create a Linux service for on-boot autostart
 
 To turn your RPi5 into a headless "camera appliance" follow these steps:
