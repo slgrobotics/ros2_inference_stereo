@@ -200,8 +200,8 @@ class InferenceStereoNode(Node):
             right = cv2.resize(right_raw, (0, 0), fx=self.scale_factor, fy=self.scale_factor, interpolation=cv2.INTER_AREA)
 
             # Use low-res maps (computed once in load_calibration())
-            left_rect = cv2.remap(left, self.mapLx, self.camera_info_helper.mapLy, cv2.INTER_LINEAR)
-            right_rect = cv2.remap(right, self.mapRx, self.camera_info_helper.mapRy, cv2.INTER_LINEAR)
+            left_rect = cv2.remap(left, self.camera_info_helper.mapLx, self.camera_info_helper.mapLy, cv2.INTER_LINEAR)
+            right_rect = cv2.remap(right, self.camera_info_helper.mapRx, self.camera_info_helper.mapRy, cv2.INTER_LINEAR)
 
             image_msg = self.br.cv2_to_imgmsg(left_rect, encoding="bgr8")
 
