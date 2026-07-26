@@ -49,7 +49,7 @@ class InferenceStereoNode(Node):
         self.declare_parameter("close_cutout_factor", 1.0)
         self.declare_parameter("far_smoothing_factor", 1.0)
         self.declare_parameter("min_valid_disp", 1.0)
-        self.declare_parameter("loop_delay_sec", 0.01)      # short "sleep" after detections processing to free CPU
+        self.declare_parameter("loop_delay_sec", 0.05)      # short "sleep" after detections processing to free CPU
 
         self.verbose = bool(self.get_parameter("verbose").value)
         calibration_file = str(self.get_parameter("calibration_file").value)
