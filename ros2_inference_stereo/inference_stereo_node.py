@@ -452,9 +452,19 @@ class InferenceStereoNode(Node):
                 return
 
             # Resize raw images to boost processing speed ---
-            # For 820x616, a fx0.5 scale results in 410x308 (4x fewer pixels)
-            left = cv2.resize(left_raw, (0, 0), fx=self.scale_factor, fy=self.scale_factor, interpolation=cv2.INTER_AREA)
-            right = cv2.resize(right_raw, (0, 0), fx=self.scale_factor, fy=self.scale_factor, interpolation=cv2.INTER_AREA)
+            # Ensure that the resized image dimensions are divizible by 4
+            # For 820x616, a fx0.5 scale results in 408x308 (4x fewer pixels)
+            ideal_width = int(left_raw.shape[1] * self.scale_factor)
+            ideal_height = int(left_raw.shape[0] * self.scale_factor)
+
+            # 2. Force dimensions to be multiples of 4 (round down)
+            # The bitwise AND operator (& ~3) clears the last two bits, rounding down to a multiple of 4
+            target_width = ideal_width & ~3
+            target_height = ideal_height & ~3
+
+            # 3. Resize using the exact target dimensions (width, height)
+            left = cv2.resize(left_raw, (target_width, target_height), interpolation=cv2.INTER_AREA)
+            right = cv2.resize(right_raw, (target_width, target_height), interpolation=cv2.INTER_AREA)
 
             # Use low-res maps (computed once in load_calibration())
             left_rect = cv2.remap(left, self.camera_info_helper.mapLx, self.camera_info_helper.mapLy, cv2.INTER_LINEAR)
