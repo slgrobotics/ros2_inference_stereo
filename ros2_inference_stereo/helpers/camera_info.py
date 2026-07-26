@@ -29,8 +29,9 @@ class CameraInfoHelper:
         mapRx = calib["mapRx"]
         mapRy = calib["mapRy"]
 
-        new_w = int(mapLx.shape[1] * scale_factor)
-        new_h = int(mapLx.shape[0] * scale_factor)
+        # Force dimensions to be multiples of 4 (round down):
+        new_w = int(mapLx.shape[1] * scale_factor) & ~3
+        new_h = int(mapLx.shape[0] * scale_factor) & ~3
 
         self.mapLx = cv2.resize(
             mapLx,
