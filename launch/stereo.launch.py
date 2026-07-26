@@ -37,7 +37,7 @@ def generate_launch_description():
             'image_topic': "camera/image_raw",
             'camera_info_topic': "camera/camera_info",
             'depth_image_topic': "stereo/depth/image_rect_raw",  # Empty string disables depth image publishing
-            'frame_id': "stereo_camera",
+            'frame_id': "camera_stereo_link_optical",  # must be consistent with your robot's camera link on TF tree
             'max_depth_range_m': 5.0,  # cut-off range for detecting in depth image
             'close_cutout_factor': 1.0,
             'far_smoothing_factor': 1.0,

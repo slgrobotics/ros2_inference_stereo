@@ -44,7 +44,7 @@ class InferenceStereoNode(Node):
         self.declare_parameter("image_topic", "camera/image_raw")  # or "camera/image_raw/compressed"
         self.declare_parameter("camera_info_topic", "camera/camera_info")  # must be consistent with vis.launch and RViz2 config if you use RViz2 for visualization
         self.declare_parameter("depth_image_topic", "stereo/depth/image_rect_raw")  # Empty string disables depth image publishing
-        self.declare_parameter("frame_id", "stereo_camera")
+        self.declare_parameter("frame_id", "camera_stereo_link_optical")  # must be consistent with your robot's camera link on TF tree
         self.declare_parameter("max_depth_range_m", 5.0) # cut-off range for detecting in depth image
         self.declare_parameter("close_cutout_factor", 1.0)
         self.declare_parameter("far_smoothing_factor", 1.0)

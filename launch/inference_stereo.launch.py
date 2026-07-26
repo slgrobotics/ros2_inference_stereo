@@ -50,7 +50,7 @@ def generate_launch_description():
             'depth_image_topic': "stereo/depth/image_rect_raw",  # Empty string disables depth image publishing
             'cloud_topic': "stereo/sparse_cloud",                # Empty string disables sparse pointcloud publishing
             'detection_topic': 'image_inference_detections',     # Empty string disables detections publishing
-            'frame_id': "stereo_camera",
+            'frame_id': "camera_stereo_link_optical",  # must be consistent with your robot's camera link on TF tree
             'grid_size': 16,  # Grid size NxN for sparse sampling
             'close_cutout_factor': 1.0,
             'far_smoothing_factor': 1.0,

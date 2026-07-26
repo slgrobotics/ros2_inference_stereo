@@ -69,7 +69,7 @@ class InferenceStereoNode(Node):
         self.declare_parameter("depth_image_topic", "stereo/depth/image_rect_raw")  # Empty string disables depth image publishing
         self.declare_parameter("jpeg_quality", 80)            # JPEG quality for compressed image output (1-100, higher is better quality and larger size)
         self.declare_parameter("detection_topic", "image_inference_detections")  # Empty string disables detections publishing
-        self.declare_parameter("frame_id", "stereo_camera")
+        self.declare_parameter("frame_id", "camera_stereo_link_optical")  # must be consistent with your robot's camera link on TF tree
         self.declare_parameter("grid_size", 16)               # Grid size NxN for sparse sampling
         self.declare_parameter("close_cutout_factor", 1.0)
         self.declare_parameter("far_smoothing_factor", 1.0)
