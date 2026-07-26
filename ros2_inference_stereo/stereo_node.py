@@ -150,8 +150,6 @@ class InferenceStereoNode(Node):
         enabled_outputs.append(f"depth Image on '{depth_image_topic}'")
         self.get_logger().info("Publishing: " + ", ".join(enabled_outputs))
 
-        self.camera_info_counter = 0
-
     def destroy_node(self):
         try:
             self.loop_timer.cancel()
@@ -253,18 +251,14 @@ class InferenceStereoNode(Node):
             if self.verbose:
                 self.get_logger().info(f"Capture time: {dt_capture_ms:.2f} ms, Projecting time: {dt_projecting_ms:.2f} ms, Depth calc time: {dt_depth_calc_ms:.2f} ms")
 
-            self.camera_info_counter += 1
-
-            # publish CameraInfo every 5 frames, and also on the first 5 frames to ensure subscribers get it quickly
-            if self.camera_info_counter < 5 or self.camera_info_counter % 5 == 0:
-                img_h, img_w = left.shape[:2]
-                cam_info = self.camera_info_helper.build_scaled_camera_info(
-                    img_w,
-                    img_h,
-                    image_msg.header.frame_id,
-                    image_msg.header.stamp,
-                )
-                self.camera_info_pub.publish(cam_info)
+            img_h, img_w = left.shape[:2]
+            cam_info = self.camera_info_helper.build_scaled_camera_info(
+                img_w,
+                img_h,
+                image_msg.header.frame_id,
+                image_msg.header.stamp,
+            )
+            self.camera_info_pub.publish(cam_info)
 
             self.image_pub.publish(image_msg)
 

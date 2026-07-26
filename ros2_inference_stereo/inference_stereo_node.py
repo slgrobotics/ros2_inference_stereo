@@ -415,19 +415,14 @@ class InferenceStereoNode(Node):
                         f"available: {vm.available/1024**2:.0f} MB"
                     )
 
-            # we don't need to publish CameraInfo for every image, but we want to publish it at least once in a while 
-            # to allow RViz2 and other ROS2 consumers to get the camera parameters
-            # CameraInfo must have the same header stamp as the image for RViz2 to associate them together,
-            # so we publish it here with the same timestamp as the image
-            if self.detections_packet_counter < 10 or self.detections_packet_counter % 5 == 0:
-                img_h, img_w = latest_image.shape[:2]
-                cam_info = self.camera_info_helper.build_scaled_camera_info(
-                    img_w,
-                    img_h,
-                    image_msg.header.frame_id,
-                    image_msg.header.stamp,
-                )
-                self.camera_info_pub.publish(cam_info)
+            img_h, img_w = latest_image.shape[:2]
+            cam_info = self.camera_info_helper.build_scaled_camera_info(
+                img_w,
+                img_h,
+                image_msg.header.frame_id,
+                image_msg.header.stamp,
+            )
+            self.camera_info_pub.publish(cam_info)
 
         finally:
             #self.detections_timer.timer_period_ns = int(self.detect_delay_sec * 1e9)
