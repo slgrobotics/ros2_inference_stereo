@@ -30,7 +30,7 @@ from sensor_msgs.msg import Image, CameraInfo
 from config.config import Camera  # Important: review and adjust camera settings in config/config.py to match your hardware and calibration.
 
 from ros2_inference_stereo.helpers import CameraInfoHelper, CameraDriver
-from ros2_inference_stereo.helpers.disparity import (make_valid_disparity_mask, derive_sgbm_params, build_depth_image)
+from ros2_inference_stereo.helpers.disparity import (make_valid_disparity_mask, derive_sgbm_params, build_depth_image_float, build_depth_image_uint16)
 
 class InferenceStereoNode(Node):
     def __init__(self) -> None:
@@ -250,7 +250,8 @@ class InferenceStereoNode(Node):
             # for debugging - see disparity image
             #depth_image = cv2.normalize(disparity, None, 0, 255, cv2.NORM_MINMAX)
 
-            depth_image = build_depth_image( disparity, points_3d, valid_mask, max_range_m=self.max_depth_range_m,)
+            # use either build_depth_image_float() or  build_depth_image_uint16()
+            depth_image = build_depth_image_uint16( disparity, points_3d, valid_mask, max_range_m=self.max_depth_range_m,)
 
             t3 = time.perf_counter()
 

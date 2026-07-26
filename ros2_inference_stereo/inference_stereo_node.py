@@ -50,7 +50,7 @@ from vision_msgs.msg import Detection2DArray
 from config.config import Camera  # Important: review and adjust camera settings in config/config.py to match your hardware and calibration.
 
 from ros2_inference_stereo.helpers import ObjectDetector, PointCloudHelper, CameraInfoHelper, DetectionRosHelper, CameraDriver
-from ros2_inference_stereo.helpers.disparity import (make_valid_disparity_mask, derive_sgbm_params, extract_sparse_points, build_depth_image)
+from ros2_inference_stereo.helpers.disparity import (make_valid_disparity_mask, derive_sgbm_params, extract_sparse_points, build_depth_image_float, build_depth_image_uint16)
 
 class InferenceStereoNode(Node):
     def __init__(self) -> None:
@@ -500,8 +500,9 @@ class InferenceStereoNode(Node):
 
                 points_3d = cv2.reprojectImageTo3D(disparity, self.camera_info_helper.Q, handleMissingValues=False)
 
+            # use either build_depth_image_float() or build_depth_image_uint16()
             if self.publish_depth_image:
-                depth_image = build_depth_image(
+                depth_image = build_depth_image_uint16(
                     disparity,
                     points_3d,
                     valid_mask,

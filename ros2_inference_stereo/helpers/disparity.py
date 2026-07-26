@@ -86,8 +86,10 @@ def estimate_depth_cm_from_disparity(disparity_px, focal_px, baseline_m):
     z_m = (focal_px * baseline_m) / disparity_px
     return z_m * 100.0
 
-
-def build_depth_image(disparity, points_3d, valid_mask, max_range_m=5.0):
+# A generic way of building depth image, using float precision
+# This code contains nested Python for loops that process pixels individually.
+# This is incredibly slow and is the root cause of the 0.4 Hz bottleneck.
+def build_depth_image_float(disparity, points_3d, valid_mask, max_range_m=5.0):
     """Build a per-pixel depth image in meters from stereo reprojection data."""
 
     if disparity is None or points_3d is None or valid_mask is None:
@@ -119,6 +121,43 @@ def build_depth_image(disparity, points_3d, valid_mask, max_range_m=5.0):
             depth_image[y, x] = z_cam
 
     return depth_image
+
+# ROS and RTAB-Map standard depth images natively prefer 16-bit integer formats (TYPE_16UC1)
+#  where the pixel value represents the distance in millimeters.
+#  Invalid pixels are set to 0 instead of np.nan. 
+# This conversion drastically reduces network bandwidth, stops the RVL compression warning,
+#  and optimizes RTAB-Map's processing pipelines.
+# Here is the optimized, fully vectorized version of the function that outputs
+#  a standard 16-bit millimeter depth image instantly using NumPy
+def build_depth_image_uint16(disparity, points_3d, valid_mask, max_range_m=5.0):
+    """Build a standard 16-bit integer (mm) depth image using fast vectorization."""
+
+    if disparity is None or points_3d is None or valid_mask is None:
+        return None
+
+    h, w = disparity.shape[:2]
+
+    if points_3d.shape[:2] != (h, w):
+        return None
+
+    # 1. Extract the Z-channel (depth) natively using slicing
+    z_cam = points_3d[:, :, 2]
+
+    # 2. Build a comprehensive mask combining all constraints at once
+    combined_mask = (
+        valid_mask & 
+        np.isfinite(disparity) & (disparity > 0.0) &
+        np.isfinite(points_3d[:, :, 0]) & np.isfinite(points_3d[:, :, 1]) & np.isfinite(z_cam) &
+        (z_cam > 0.0) & (z_cam <= max_range_m)
+    )
+
+    # 3. Initialize the standard 16-bit unsigned integer depth image with 0 (invalid)
+    depth_image_uint16 = np.zeros((h, w), dtype=np.uint16)
+
+    # 4. Convert valid meters to millimeters (multiply by 1000) and cast to uint16
+    depth_image_uint16[combined_mask] = (z_cam[combined_mask] * 1000.0).astype(np.uint16)
+
+    return depth_image_uint16
 
 
 def overlay_cell_distances(
