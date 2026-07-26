@@ -547,7 +547,7 @@ class InferenceStereoNode(Node):
                 self.pub_cloud.publish(latest_pointcloud_msg)
 
             if self.publish_depth_image and depth_image is not None:
-                depth_msg = self.br.cv2_to_imgmsg(depth_image.astype(np.float32), encoding="32FC1")
+                depth_msg = self.br.cv2_to_imgmsg(depth_image.astype(np.float32), encoding="16UC1")
                 depth_msg.header.stamp = time_ros
                 depth_msg.header.frame_id = self.frame_id
                 self.depth_image_pub.publish(depth_msg)
