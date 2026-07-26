@@ -6,8 +6,8 @@ inference_stereo_node:
     calibration_file: '/home/ros/robot_ws/install/ros2_inference_stereo/share/ros2_inference_stereo/config/calib_820x616.npz'
     scale_factor: 1.0  # 1.0 = full resolution, 0.5 = half resolution, etc. for stereo disparity and pointcloud processing
     model_path: 'models/yolo11n.pt'  # relative to where you launch, e.g. "~/robot_ws/models/yolo11n.pt"
-    image_topic: 'camera/image_raw/compressed'   # for bounding boxes overlay preview in RViz2
-    #image_topic: 'camera/image_raw'  # for bounding boxes overlay preview in RViz2, if uncompressed images are preferred
+    #image_topic: 'camera/image_raw/compressed'   # for bounding boxes overlay preview in RViz2, saves WiFi traffic
+    image_topic: 'camera/image_raw'  # for bounding boxes overlay preview in RViz2, if uncompressed images are preferred
     jpeg_quality: 80                 # JPEG quality for compressed image output (1-100, higher is better quality and larger size)
     camera_info_topic: 'camera/camera_info'
     depth_image_topic: 'stereo/depth/image_rect_raw'  # Empty string disables depth image publishing

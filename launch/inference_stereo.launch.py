@@ -44,7 +44,8 @@ def generate_launch_description():
             #'model_path': 'models/yoloe-11s-seg.pt',       # run this first to bring it into "models" directory, then run "launch/export_onnx.py"
             #'model_path': 'models/yoloe-11s-seg.onnx',     # when exported by "launch/export_onnx.py" - with custom dictionary
 
-            'image_topic': "camera/image_raw/compressed",  # or "camera/image_raw", if WiFi traffic is not a concern.
+            #'image_topic': "camera/image_raw/compressed",  # for bounding boxes overlay preview in RViz2, saves WiFi traffic
+            'image_topic': 'camera/image_raw',  # for bounding boxes overlay preview in RViz2, if uncompressed images are preferred
             'jpeg_quality': 80,            # JPEG quality for compressed image output (1-100, higher is better quality and larger size)
             'camera_info_topic': "camera/camera_info",
             'depth_image_topic': "stereo/depth/image_rect_raw",  # Empty string disables depth image publishing
