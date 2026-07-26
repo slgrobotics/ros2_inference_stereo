@@ -194,10 +194,24 @@ def build_depth_image_uint16(disparity, points_3d, valid_mask, max_range_m=5.0):
     # 4. Convert valid meters to millimeters (multiply by 1000) and cast to uint16
     depth_image_uint16[combined_mask] = (z_cam[combined_mask] * 1000.0).astype(np.uint16)
 
+    # ------------------------------------------------------------------------
     # # DEBUG: Print a 5x5 pixel patch from the center of your depth image
     # h, w = depth_image_uint16.shape
     # center_patch = depth_image_uint16[h//2 : h//2+5, w//2 : w//2+5]
     # print("Actual millimeter values in the center:\n", center_patch)
+
+    # Or, choose a random top-left corner for a 5x5 window
+    # (Stays 5 pixels away from the edges to prevent array clipping)
+    # rand_y = np.random.randint(0, depth_image_uint16.shape[0] - 5)
+    # rand_x = np.random.randint(0, depth_image_uint16.shape[1] - 5)
+
+    # # Slice out the 5x5 block
+    # random_patch = depth_image_uint16[rand_y : rand_y + 5, rand_x : rand_x + 5]
+
+    # print(f"--- 5x5 Depth Patch (mm) at Top-Left Corner Y:{rand_y}, X:{rand_x} ---")
+    # print(random_patch)
+    # print("-" * 50)
+    # ------------------------------------------------------------------------
 
     return depth_image_uint16
 
