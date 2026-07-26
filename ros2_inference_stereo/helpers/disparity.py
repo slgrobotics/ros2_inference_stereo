@@ -87,10 +87,10 @@ def estimate_depth_cm_from_disparity(disparity_px, focal_px, baseline_m):
     return z_m * 100.0
 
 # A generic way of building depth image, using float precision
-# This code contains nested Python for loops that process pixels individually.
-# This is incredibly slow and is the root cause of the 0.4 Hz bottleneck.
+# This code is optimized and fast. The float format looks good in image viewers,
+# but needs additional costly conversions when used by RTAB-Map
 def build_depth_image_float(disparity, points_3d, valid_mask, max_range_m=5.0):
-    """Build a per-pixel depth image in meters from stereo reprojection data."""
+    """Build a vectorized per-pixel depth image in meters (float32)."""
 
     if disparity is None or points_3d is None or valid_mask is None:
         return None
@@ -100,27 +100,60 @@ def build_depth_image_float(disparity, points_3d, valid_mask, max_range_m=5.0):
     if points_3d.shape[:2] != (h, w):
         return None
 
+    # 1. Extract X, Y, Z coordinate matrices using array slicing
+    x_cam = points_3d[:, :, 0]
+    y_cam = points_3d[:, :, 1]
+    z_cam = points_3d[:, :, 2]
+
+    # 2. Build a single parallel evaluation mask for all conditions
+    combined_mask = (
+        valid_mask & 
+        np.isfinite(disparity) & (disparity > 0.0) &
+        np.isfinite(x_cam) & np.isfinite(y_cam) & np.isfinite(z_cam) &
+        (z_cam > 0.0) & (z_cam <= max_range_m)
+    )
+
+    # 3. Initialize the matrix with NaN values natively
     depth_image = np.full((h, w), np.nan, dtype=np.float32)
 
-    for y in range(h):
-        for x in range(w):
-            if not valid_mask[y, x]:
-                continue
-
-            if not np.isfinite(disparity[y, x]) or disparity[y, x] <= 0.0:
-                continue
-
-            xyz = points_3d[y, x]
-            x_cam, y_cam, z_cam = float(xyz[0]), float(xyz[1]), float(xyz[2])
-
-            if not np.isfinite(x_cam) or not np.isfinite(y_cam) or not np.isfinite(z_cam):
-                continue
-            if z_cam <= 0.0 or z_cam > max_range_m:
-                continue
-
-            depth_image[y, x] = z_cam
+    # 4. Map valid Z distances using the boolean index mask
+    depth_image[combined_mask] = z_cam[combined_mask]
 
     return depth_image
+
+
+    # """Build a per-pixel depth image in meters from stereo reprojection data."""
+    ## non-optimized version with nested loops, very slow
+
+    # if disparity is None or points_3d is None or valid_mask is None:
+    #     return None
+
+    # h, w = disparity.shape[:2]
+
+    # if points_3d.shape[:2] != (h, w):
+    #     return None
+
+    # depth_image = np.full((h, w), np.nan, dtype=np.float32)
+
+    # for y in range(h):
+    #     for x in range(w):
+    #         if not valid_mask[y, x]:
+    #             continue
+
+    #         if not np.isfinite(disparity[y, x]) or disparity[y, x] <= 0.0:
+    #             continue
+
+    #         xyz = points_3d[y, x]
+    #         x_cam, y_cam, z_cam = float(xyz[0]), float(xyz[1]), float(xyz[2])
+
+    #         if not np.isfinite(x_cam) or not np.isfinite(y_cam) or not np.isfinite(z_cam):
+    #             continue
+    #         if z_cam <= 0.0 or z_cam > max_range_m:
+    #             continue
+
+    #         depth_image[y, x] = z_cam
+
+    # return depth_image
 
 # ROS and RTAB-Map standard depth images natively prefer 16-bit integer formats (TYPE_16UC1)
 #  where the pixel value represents the distance in millimeters.
@@ -129,6 +162,10 @@ def build_depth_image_float(disparity, points_3d, valid_mask, max_range_m=5.0):
 #  and optimizes RTAB-Map's processing pipelines.
 # Here is the optimized, fully vectorized version of the function that outputs
 #  a standard 16-bit millimeter depth image instantly using NumPy
+#
+# Note: the values are in millimeters within the range 1..5000, 0 means invalid.
+#       therefore it will not look greyscale in image viewe, but RTAB-Map will interpret it correctly.
+#
 def build_depth_image_uint16(disparity, points_3d, valid_mask, max_range_m=5.0):
     """Build a standard 16-bit integer (mm) depth image using fast vectorization."""
 
@@ -156,6 +193,11 @@ def build_depth_image_uint16(disparity, points_3d, valid_mask, max_range_m=5.0):
 
     # 4. Convert valid meters to millimeters (multiply by 1000) and cast to uint16
     depth_image_uint16[combined_mask] = (z_cam[combined_mask] * 1000.0).astype(np.uint16)
+
+    # # DEBUG: Print a 5x5 pixel patch from the center of your depth image
+    # h, w = depth_image_uint16.shape
+    # center_patch = depth_image_uint16[h//2 : h//2+5, w//2 : w//2+5]
+    # print("Actual millimeter values in the center:\n", center_patch)
 
     return depth_image_uint16
 
