@@ -42,7 +42,7 @@ def generate_launch_description():
             'close_cutout_factor': 1.0,
             'far_smoothing_factor': 1.0,
             'min_valid_disp': 1.0,
-            'loop_delay_sec': 0.01, # short "sleep" after processing to free CPU
+            'loop_delay_sec': 0.05, # short "sleep" after processing to free CPU
         }]
         # parameters=[params_file]  # Load params from YAML instead
     )
