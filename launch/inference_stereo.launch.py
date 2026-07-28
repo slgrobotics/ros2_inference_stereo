@@ -44,13 +44,13 @@ def generate_launch_description():
             #'model_path': 'models/yoloe-11s-seg.pt',       # run this first to bring it into "models" directory, then run "launch/export_onnx.py"
             #'model_path': 'models/yoloe-11s-seg.onnx',     # when exported by "launch/export_onnx.py" - with custom dictionary
 
-            #'image_topic': "camera/image_raw/compressed",  # for bounding boxes overlay preview in RViz2, saves WiFi traffic
-            'image_topic': 'camera/image_raw',  # for bounding boxes overlay preview in RViz2, if uncompressed images are preferred
+            #'image_topic': "camera_stereo/image_raw/compressed",  # for bounding boxes overlay preview in RViz2, saves WiFi traffic
+            'image_topic': 'camera_stereo/image_raw',  # for bounding boxes overlay preview in RViz2, if uncompressed images are preferred
             'jpeg_quality': 80,            # JPEG quality for compressed image output (1-100, higher is better quality and larger size)
-            'camera_info_topic': "camera/camera_info",
-            'depth_image_topic': "stereo/depth/image_rect_raw",  # Empty string disables depth image publishing
-            'cloud_topic': "stereo/sparse_cloud",                # Empty string disables sparse pointcloud publishing
-            'detection_topic': 'image_inference_detections',     # Empty string disables detections publishing
+            'camera_info_topic': "camera_stereo/camera_info",
+            'depth_image_topic': "camera_stereo/depth/image_rect_raw",  # Empty string disables depth image publishing
+            'cloud_topic': "camera_stereo/sparse_cloud",                # Empty string disables sparse pointcloud publishing
+            'detection_topic': 'camera_stereo/image_inference_detections',     # Empty string disables detections publishing
             'frame_id': "camera_stereo_link_optical",  # must be consistent with your robot's camera link on TF tree
             'grid_size': 16,  # Grid size NxN for sparse sampling
             'close_cutout_factor': 1.0,

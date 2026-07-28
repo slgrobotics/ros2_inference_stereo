@@ -46,7 +46,7 @@ class PerceptionAdapter(Node):
         # ---- parameters ----
         self.declare_parameter("verbose", False)
         self.declare_parameter("ticker_interval_sec", 0.1)
-        self.declare_parameter("detection_topic", "image_inference_detections")
+        self.declare_parameter("detection_topic", "camera_stereo/image_inference_detections")
         self.declare_parameter("face_detected_sound", "")
         self.declare_parameter("face_detected_text", "")
         self.declare_parameter("min_confidence", 0.6)

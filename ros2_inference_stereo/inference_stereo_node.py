@@ -63,12 +63,12 @@ class InferenceStereoNode(Node):
         self.declare_parameter("calibration_file", "config/calib_820x616.npz")
         self.declare_parameter("scale_factor", 1.0)  # 1.0 = full resolution, 0.5 = half resolution, etc. for stereo disparity and pointcloud processing
         self.declare_parameter("model_path", "models/yolo11n.pt")
-        self.declare_parameter("cloud_topic", "stereo/sparse_cloud")  # Empty string disables sparse pointcloud publishing
-        self.declare_parameter("image_topic", "camera/image_raw")  # or "camera/image_raw/compressed"
-        self.declare_parameter("camera_info_topic", "camera/camera_info")  # must be consistent with vis.launch and RViz2 config if you use RViz2 for visualization
-        self.declare_parameter("depth_image_topic", "stereo/depth/image_rect_raw")  # Empty string disables depth image publishing
+        self.declare_parameter("cloud_topic", "camera_stereo/sparse_cloud")  # Empty string disables sparse pointcloud publishing
+        self.declare_parameter("image_topic", "camera_stereo/image_raw")  # or "camera/image_raw/compressed"
+        self.declare_parameter("camera_info_topic", "camera_stereo/camera_info")  # must be consistent with vis.launch and RViz2 config if you use RViz2 for visualization
+        self.declare_parameter("depth_image_topic", "camera_stereo/depth/image_rect_raw")  # Empty string disables depth image publishing
         self.declare_parameter("jpeg_quality", 80)            # JPEG quality for compressed image output (1-100, higher is better quality and larger size)
-        self.declare_parameter("detection_topic", "image_inference_detections")  # Empty string disables detections publishing
+        self.declare_parameter("detection_topic", "camera_stereo/image_inference_detections")  # Empty string disables detections publishing
         self.declare_parameter("frame_id", "camera_stereo_link_optical")  # must be consistent with your robot's camera link on TF tree
         self.declare_parameter("grid_size", 16)               # Grid size NxN for sparse sampling
         self.declare_parameter("close_cutout_factor", 1.0)

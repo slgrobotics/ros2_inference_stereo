@@ -148,7 +148,7 @@ Here is how to use the checkerboard during calibration: https://youtu.be/G-Iw35V
 
 Both `inference_stereo_node.py` and `detection_visualizer_node.py` provide a parameter that controls the type of image transport
 ```
-'image_topic': "camera/image_raw/compressed",  # or "camera/image_raw", if WiFi traffic is not a concern.
+'image_topic': "camera_stereo/image_raw/compressed",  # or "camera/image_raw", if WiFi traffic is not a concern.
 ```
 
 The *"/compressed"* suffix enables JPEG compression - RPi5 CPU will take a small hit, while WiFi traffic will be significuntly lower:
@@ -173,7 +173,7 @@ ros2 run image_view image_view --ros-args \
 
 The *CameraInfo* message is derived from stereo calibration data and is published by RPi5 node:
 ```
-'camera_info_topic': "camera/camera_info"
+'camera_info_topic': "camera_stereo/camera_info"
 ```
 
 Any *PointCloud2* message can be "sliced" into a *LaserScan* - see `launch/vis.launch.py` for usage example.

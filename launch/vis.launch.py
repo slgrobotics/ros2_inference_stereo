@@ -55,7 +55,7 @@ def generate_launch_description():
         parameters=[{
             "verbose": True,        # If true - print debug info about recognized and passed detections.
             'ticker_interval_sec': 0.1,
-            'detection_topic': 'image_inference_detections',
+            'detection_topic': 'camera_stereo/image_inference_detections',
             #'face_detected_sound': 'my_face.wav',
             'face_detected_text': 'I see you!',
             'min_confidence': 0.6,     # object detection confidence
@@ -83,9 +83,9 @@ def generate_launch_description():
         name='detection_visualizer',
         output='screen',
         remappings=[
-            ('~/images', '/camera/image_raw'),
-            ('~/detections', '/image_inference_detections'),
-            ('~/dbg_images', '/camera/image_inference_overlay'),
+            ('~/images', '/camera_stereo/image_raw'),
+            ('~/detections', 'camera_stereo/image_inference_detections'),
+            ('~/dbg_images', '/camera_stereo/image_inference_overlay'),
         ]
     )
 
@@ -97,9 +97,9 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             "verbose": False,        # If true - print debug info
-            'image_topic': 'camera/image_raw/compressed',  # or "camera/image_raw", make sure it matches what inference_stereo_node publishes
-            'detection_topic': 'image_inference_detections',
-            'overlay_image_topic': 'camera/image_inference_overlay',
+            'image_topic': 'camera_stereo/image_raw/compressed',  # or "camera/image_raw", make sure it matches what inference_stereo_node publishes
+            'detection_topic': 'camera_stereo/image_inference_detections',
+            'overlay_image_topic': 'camera_stereo/image_inference_overlay',
             'time_slop': 0.01,       # "self.time_slop" defines tolerance to header timestamps
         }]
         # parameters=[params_file]  # Load params from YAML instead
