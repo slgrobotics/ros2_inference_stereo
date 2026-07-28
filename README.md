@@ -17,10 +17,10 @@ self-contained perception pipeline suitable for edge robotics applications.
 
 Here are the actual message rates:
 ```
-ros2 topic hz /camera/image_raw
+ros2 topic hz /camera_stereo/rgb/image_raw
 average rate: 0.969
 
-ros2 topic hz /image_inference_detections
+ros2 topic hz /camera_stereo/image_inference_detections
 average rate: 0.992
 
 ros2 topic hz /stereo/sparse_cloud
@@ -76,9 +76,9 @@ Here is my DIY setup:
 
 **ROS2-native integration**
   * Publishes:
-    * `camera/image_raw`
-    * `image_inference_detections`
-    * `points` (`PointCloud2`)
+    * `camera_stereo/rgb/image_raw`
+    * `camera_stereo/image_inference_detections`
+    * `camera_stereo/sparse_cloud` (`PointCloud2`)
   * Optional visualization node for overlaying detections on images
   * Consistent timestamping across image, detections, and point cloud
 
@@ -148,7 +148,7 @@ Here is how to use the checkerboard during calibration: https://youtu.be/G-Iw35V
 
 Both `inference_stereo_node.py` and `detection_visualizer_node.py` provide a parameter that controls the type of image transport
 ```
-'image_topic': "camera_stereo/image_raw/compressed",  # or "camera/image_raw", if WiFi traffic is not a concern.
+'image_topic': "camera_stereo/rgb/image_raw/compressed",  # or "camera_stereo/rgb/image_raw", if WiFi traffic is not a concern.
 ```
 
 The *"/compressed"* suffix enables JPEG compression - RPi5 CPU will take a small hit, while WiFi traffic will be significuntly lower:
@@ -160,12 +160,12 @@ Avg: 635  KBit/s   - Compressed
 
 This setting must be consistent on both sides - the publisher (RPi5) and subscriber (the workstation in this example).
 
-The `/camera/image_inference_overlay` topic is always published uncompressed, as RViz2 and RQT do not support compressed image topics.
+The `/camera_stereo/image_inference_overlay` topic is always published uncompressed, as RViz2 and RQT do not support compressed image topics.
 
 You can still view the compressed raw images published by the RPi5 on your workstation:
 ```
 ros2 run image_view image_view --ros-args \
-  -r image:=/camera/image_raw \
+  -r image:=/camera_stereo/rgb/image_raw \
   -p image_transport:=compressed
 ```
 
@@ -249,8 +249,8 @@ ros2 launch ros2_inference_stereo inference_stereo.launch.py
 The `stereo_node` node is optimized to work with [RTAB-Map](https://github.com/slgrobotics/articubot_one/wiki/Visual-SLAM-with-RTAB%E2%80%90Map)
 It only publishes the following topics:
 ```
-image_topic: 'camera/image_raw'
-camera_info_topic: 'camera/camera_info'
+image_topic: 'camera_stereo/rgb/image_raw'
+camera_info_topic: 'camera_stereo/camera_info'
 depth_image_topic: 'stereo/depth/image_rect_raw'
 ```
 
@@ -258,9 +258,9 @@ depth_image_topic: 'stereo/depth/image_rect_raw'
 
 The `inference_stereo_node` disables related portions of code when you set the following parameters to empty line:
 ```
-depth_image_topic: 'stereo/depth/image_rect_raw'
-cloud_topic: 'stereo/sparse_cloud'
-detection_topic: 'image_inference_detections'
+depth_image_topic: 'camera_stereo/depth/image_rect_raw'
+cloud_topic: 'camera_stereo/sparse_cloud'
+detection_topic: 'camera_stereo/image_inference_detections'
 ```
 
 ## Create a Linux service for on-boot autostart
@@ -412,24 +412,24 @@ For interfacing to Behavior Trees see this [guide](https://github.com/slgrobotic
 
 ### Topics piblished by */inference_stereo_node*
 
-| Topic                          | Type                               | Description                     |
-| -------------------------------| ---------------------------------- | ------------------------------- |
-| `/camera/image_raw`            | `sensor_msgs/msg/Image`            | Raw camera image                |
-| `/camera/image_raw/compressed` | `sensor_msgs/msg/CompressedImage`  | Compressed camera image (JPEG)  |
-| `/camera/camera_info`          | `sensor_msgs/msg/CameraInfo`       | Camera calibration, FOV etc.    |
-| `/image_inference_detections`  | `vision_msgs/msg/Detection2DArray` | YOLO detections                 |
-| `/stereo/sparse_cloud`         | `sensor_msgs/msg/PointCloud2`      | Sparse stereo point cloud       |
+| Topic                                       | Type                               | Description                     |
+| --------------------------------------------| ---------------------------------- | ------------------------------- |
+| `/camera_stereo/rgb/image_raw`              | `sensor_msgs/msg/Image`            | Raw camera image                |
+| `/camera_stereo/rgb/image_raw/compressed`   | `sensor_msgs/msg/CompressedImage`  | Compressed camera image (JPEG)  |
+| `/camera_stereo/camera_info`                | `sensor_msgs/msg/CameraInfo`       | Camera calibration, FOV etc.    |
+| `/camera_stereo/image_inference_detections` | `vision_msgs/msg/Detection2DArray` | YOLO detections                 |
+| `/camera_stereo/sparse_cloud`               | `sensor_msgs/msg/PointCloud2`      | Sparse stereo point cloud       |
 
 ### Topics piblished by other nodes in the demo
 
-| Topic                             | Type                            | Published by                    |
-| --------------------------------- | ------------------------------- | ------------------------------- |
-| `/camera/image_inference_overlay` | `sensor_msgs/msg/Image`         | `/detection_visualizer`         |
-| `/scan`                           | `sensor_msgs/msg/LaserScan`     | `/pointcloud_to_laserscan`      |
-| `/fgs/face_detected`              | `std_msgs/msg/Bool`             | `/perception_adapter`           |
-| `/fgs/face_yaw_error`             | `std_msgs/msg/Float32`          | `/perception_adapter`           |
-| `/fgs/gesture_command`            | `std_msgs/msg/String`           | `/perception_adapter`           |
-| `/bt/face_gesture_detect`         | `sensor_msgs/msg/Illuminance`   | `/perception_adapter`           |
+| Topic                                    | Type                            | Published by                    |
+| ---------------------------------------- | ------------------------------- | ------------------------------- |
+| `camera_stereo//image_inference_overlay` | `sensor_msgs/msg/Image`         | `/detection_visualizer`         |
+| `/scan`                                  | `sensor_msgs/msg/LaserScan`     | `/pointcloud_to_laserscan`      |
+| `/fgs/face_detected`                     | `std_msgs/msg/Bool`             | `/perception_adapter`           |
+| `/fgs/face_yaw_error`                    | `std_msgs/msg/Float32`          | `/perception_adapter`           |
+| `/fgs/gesture_command`                   | `std_msgs/msg/String`           | `/perception_adapter`           |
+| `/bt/face_gesture_detect`                | `sensor_msgs/msg/Illuminance`   | `/perception_adapter`           |
 
 ### Key Parameters
 

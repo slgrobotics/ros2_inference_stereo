@@ -40,7 +40,7 @@ class DetectionVisualizerNode(Node):
         super().__init__('detection_visualizer')
 
         self.declare_parameter("verbose", False)
-        self.declare_parameter("image_topic", "camera_stereo/image_raw")  # or "camera/image_raw/compressed"
+        self.declare_parameter("image_topic", "camera_stereo/rgb/image_raw")  # or "camera_stereo/rgb/image_raw/compressed"
         self.declare_parameter("detection_topic", "camera_stereo/image_inference_detections")
         self.declare_parameter("overlay_image_topic", "camera_stereo/image_inference_overlay")
         self.declare_parameter("time_slop", 0.01)

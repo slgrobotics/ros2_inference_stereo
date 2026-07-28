@@ -6,13 +6,13 @@ inference_stereo_node:
     calibration_file: '/home/ros/robot_ws/install/ros2_inference_stereo/share/ros2_inference_stereo/config/calib_820x616.npz'
     scale_factor: 1.0  # 1.0 = full resolution, 0.5 = half resolution, etc. for stereo disparity and pointcloud processing
     model_path: 'models/yolo11n.pt'  # relative to where you launch, e.g. "~/robot_ws/models/yolo11n.pt"
-    #image_topic: 'camera/image_raw/compressed'   # for bounding boxes overlay preview in RViz2, saves WiFi traffic
-    image_topic: 'camera/image_raw'  # for bounding boxes overlay preview in RViz2, if uncompressed images are preferred
+    #image_topic: 'camera_stereo/rgb/image_raw/compressed'   # for bounding boxes overlay preview in RViz2, saves WiFi traffic
+    image_topic: 'camera_stereo/rgb/image_raw'  # for bounding boxes overlay preview in RViz2, if uncompressed images are preferred
     jpeg_quality: 80                 # JPEG quality for compressed image output (1-100, higher is better quality and larger size)
-    camera_info_topic: 'camera/camera_info'
-    depth_image_topic: 'stereo/depth/image_rect_raw'  # Empty string disables depth image publishing
-    cloud_topic: 'stereo/sparse_cloud'                # Empty string disables sparse pointcloud publishing
-    detection_topic: 'image_inference_detections'     # Empty string disables detections publishing
+    camera_info_topic: 'camera_stereo/camera_info'
+    depth_image_topic: 'camera_stereo/depth/image_rect_raw'  # Empty string disables depth image publishing
+    cloud_topic: 'camera_stereo/sparse_cloud'                # Empty string disables sparse pointcloud publishing
+    detection_topic: 'camera_stereo/image_inference_detections'     # Empty string disables detections publishing
     frame_id: 'camera_stereo_link_optical'   # must be consistent with your robot's camera link on TF tree
     grid_size: 16  # Grid size NxN for sparse sampling
     close_cutout_factor: 1.0
@@ -34,9 +34,9 @@ stereo_node:
     verbose: True        # If true - print debug info.
     calibration_file: '/home/ros/robot_ws/install/ros2_inference_stereo/share/ros2_inference_stereo/config/calib_820x616.npz'
     scale_factor: 0.5  # 1.0 = full resolution, 0.5 = half resolution, etc. for stereo disparity and pointcloud processing
-    image_topic: 'camera/image_raw'  # for overlay preview, uncompressed
-    camera_info_topic: 'camera/camera_info'
-    depth_image_topic: 'stereo/depth/image_rect_raw'
+    image_topic: 'camera_stereo/rgb/image_raw'  # for overlay preview, uncompressed
+    camera_info_topic: 'camera_stereo/camera_info'
+    depth_image_topic: 'camera_stereo/depth/image_rect_raw'
     frame_id: 'camera_stereo_link_optical'   # must be consistent with your robot's camera link on TF tree
     close_cutout_factor: 1.0
     far_smoothing_factor: 1.0
@@ -48,7 +48,7 @@ perception_adapter:
   ros__parameters:
     verbose: True        # If true - print debug info about recognized and passed detections.
     ticker_interval_sec: 0.1
-    detection_topic: 'image_inference_detections'
+    detection_topic: 'camera_stereo/image_inference_detections'
     #face_detected_sound: 'my_face.wav'
     face_detected_text: 'I see you!'
     min_confidence: 0.6  # object detection confidence threshold
@@ -66,7 +66,7 @@ perception_adapter:
 detection_visualizer:
   ros__parameters:
     verbose: False        # If true - print debug info
-    image_topic: 'camera/image_raw/compressed'  # or "camera/image_raw", make sure it matches what inference_stereo_node publishes
-    detection_topic: 'image_inference_detections'
-    overlay_image_topic: 'camera/image_inference_overlay'  # topic to publish overlay visualization (bounding boxes etc.) for RViz2 preview
+    image_topic: 'camera_stereo/rgb/image_raw/compressed'  # or "camera_stereo/rgb/image_raw", make sure it matches what inference_stereo_node publishes
+    detection_topic: 'camera_stereo/image_inference_detections'
+    overlay_image_topic: 'camera_stereo/image_inference_overlay'  # topic to publish overlay visualization (bounding boxes etc.) for RViz2 preview
     time_slop: 0.01       # "self.time_slop" defines tolerance to header timestamps when synchronizing images and detections

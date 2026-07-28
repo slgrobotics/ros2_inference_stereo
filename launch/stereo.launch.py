@@ -34,7 +34,7 @@ def generate_launch_description():
             'verbose': False,   # If true - print debug info.
             'calibration_file': calib_file,
             'scale_factor': 0.5,  # 1.0 = full resolution, 0.5 = half resolution, etc.
-            'image_topic': "camera_stereo/image_raw",
+            'image_topic': "camera_stereo/rgb/image_raw",
             'camera_info_topic': "camera_stereo/camera_info",
             'depth_image_topic': "camera_stereo/depth/image_rect_raw",  # Empty string disables depth image publishing
             'frame_id': "camera_stereo_link_optical",  # must be consistent with your robot's camera link on TF tree

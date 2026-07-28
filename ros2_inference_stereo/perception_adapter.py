@@ -23,7 +23,7 @@ class PerceptionAdapter(Node):
     Perception -> Behavior adapter.
 
     Input:
-      /image_inference_detections   (vision_msgs/Detection2DArray)
+      /camera_stereo/image_inference_detections   (vision_msgs/Detection2DArray)
 
     Published outputs:
       /bt/face_gesture_detect       (sensor_msgs/Illuminance)

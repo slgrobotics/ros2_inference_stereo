@@ -41,7 +41,7 @@ class InferenceStereoNode(Node):
         self.declare_parameter("verbose", False)
         self.declare_parameter("calibration_file", "config/calib_820x616.npz")
         self.declare_parameter("scale_factor", 0.5)  # 1.0 = full resolution, 0.5 = half resolution, etc.
-        self.declare_parameter("image_topic", "camera_stereo/image_raw")  # or "camera/image_raw/compressed"
+        self.declare_parameter("image_topic", "camera_stereo/rgb/image_raw")  # or "camera_stereo/rgb/image_raw/compressed"
         self.declare_parameter("camera_info_topic", "camera_stereo/camera_info")  # must be consistent with vis.launch and RViz2 config if you use RViz2 for visualization
         self.declare_parameter("depth_image_topic", "camera_stereo/depth/image_rect_raw")  # Empty string disables depth image publishing
         self.declare_parameter("frame_id", "camera_stereo_link_optical")  # must be consistent with your robot's camera link on TF tree

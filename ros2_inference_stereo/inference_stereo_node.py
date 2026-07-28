@@ -64,7 +64,7 @@ class InferenceStereoNode(Node):
         self.declare_parameter("scale_factor", 1.0)  # 1.0 = full resolution, 0.5 = half resolution, etc. for stereo disparity and pointcloud processing
         self.declare_parameter("model_path", "models/yolo11n.pt")
         self.declare_parameter("cloud_topic", "camera_stereo/sparse_cloud")  # Empty string disables sparse pointcloud publishing
-        self.declare_parameter("image_topic", "camera_stereo/image_raw")  # or "camera/image_raw/compressed"
+        self.declare_parameter("image_topic", "camera_stereo/rgb/image_raw")  # or "camera_stereo/rgb/image_raw/compressed"
         self.declare_parameter("camera_info_topic", "camera_stereo/camera_info")  # must be consistent with vis.launch and RViz2 config if you use RViz2 for visualization
         self.declare_parameter("depth_image_topic", "camera_stereo/depth/image_rect_raw")  # Empty string disables depth image publishing
         self.declare_parameter("jpeg_quality", 80)            # JPEG quality for compressed image output (1-100, higher is better quality and larger size)

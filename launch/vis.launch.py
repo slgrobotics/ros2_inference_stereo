@@ -74,7 +74,7 @@ def generate_launch_description():
     )
 
     # Optional: you can use ROS2 official https://github.com/ros2/detection_visualizer
-    # if you publish synchronized timestamps between image and detections and publish "uncompressed" image topic, e.g. "camera/image_raw"
+    # if you publish synchronized timestamps between image and detections and publish "uncompressed" image topic, e.g. "camera_stereo/rgb/image_raw"
     # make sure you have the following package in "src" directory:
     #   git clone https://github.com/ros2/detection_visualizer.git
     detection_visualizer_node = Node(
@@ -83,8 +83,8 @@ def generate_launch_description():
         name='detection_visualizer',
         output='screen',
         remappings=[
-            ('~/images', '/camera_stereo/image_raw'),
-            ('~/detections', 'camera_stereo/image_inference_detections'),
+            ('~/images', '/camera_stereo/rgb/image_raw'),
+            ('~/detections', '/camera_stereo/image_inference_detections'),
             ('~/dbg_images', '/camera_stereo/image_inference_overlay'),
         ]
     )
@@ -97,7 +97,7 @@ def generate_launch_description():
         output='screen',
         parameters=[{
             "verbose": False,        # If true - print debug info
-            'image_topic': 'camera_stereo/image_raw/compressed',  # or "camera/image_raw", make sure it matches what inference_stereo_node publishes
+            'image_topic': 'camera_stereo/rgb/image_raw/compressed',  # or "camera_stereo/rgb/image_raw", make sure it matches what inference_stereo_node publishes
             'detection_topic': 'camera_stereo/image_inference_detections',
             'overlay_image_topic': 'camera_stereo/image_inference_overlay',
             'time_slop': 0.01,       # "self.time_slop" defines tolerance to header timestamps
