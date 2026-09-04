@@ -169,6 +169,8 @@ ros2 run image_view image_view --ros-args \
   -p image_transport:=compressed
 ```
 
+Refer to this [guide](https://github.com/slgrobotics/robots_bringup/blob/main/Docs/Sensors/Camera.md#using-compressed-transport) for more info.
+
 ## CameraInfo and Simulated LaserScan
 
 The *CameraInfo* message is derived from stereo calibration data and is published by RPi5 node:
